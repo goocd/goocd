@@ -15,6 +15,9 @@ type Debugger interface {
 	Program() error
 }
 
+// TODO: Add direct way of getting the correct debugger if we provide command line tooling for it
+
+// GetDebugger is a generalized way to find any implemented debugger connected to the system
 func GetDebugger() (Debugger, error) {
 	// Initialize the hid package.
 	if err := hid.Init(); err != nil {
@@ -38,11 +41,13 @@ func GetDebugger() (Debugger, error) {
 	return dbg, nil
 }
 
+// findDebugger is the callback functino provided to the enumerator in order to more closely identify a valid usb connection.
+// Todo: Potentially interface these away if we need to support more than just USB
 func findDebugger(info *hid.DeviceInfo) error {
+	// Check VendorID + ProductID pairings for all usb devices
 	debuggerID := uint32(info.VendorID)<<16 | uint32(info.ProductID)
 	_, ok := DebuggerMap[debuggerID]
 	if ok {
-		// Sanity Checks since Vendor ID + Product ID aren't guaranteed
 		availableID = debuggerID
 	}
 	return nil

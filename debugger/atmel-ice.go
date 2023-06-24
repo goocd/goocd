@@ -8,9 +8,12 @@ const (
 )
 
 func init() {
+	// Provide the vendorID + ProductID Pattern that would be expected for the atmel ICE
 	DebuggerMap[uint32(vendorID<<16|productID)] = NewAtmelICE
 }
 
+// NewAtmelICE returns the interface of the AtmelICE struct to provide simple exposure of basic methods.
+// You can always use the struct directly if more refined control is needed
 func NewAtmelICE() (Debugger, error) {
 	log.Printf("GOT HERE: Set Up Atmel Ice")
 	ice := new(AtmelICE)
@@ -21,9 +24,11 @@ func NewAtmelICE() (Debugger, error) {
 	return ice, nil
 }
 
+// AtmelICE Will Contain nil pointers to the implementations it supports. Initialized when the NewAtmelICE function is called
 type AtmelICE struct {
 }
 
+// Program will actually accept a file stream to be written into board memory. Probably come from a form of parser
 func (a *AtmelICE) Program() error {
 	log.Printf("GOT HERE: Atmel Ice Programming Start")
 	return nil
