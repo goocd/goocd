@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/goocd/goocd/debugger"
 	"log"
 	"os"
 
@@ -28,15 +29,20 @@ func main() {
 		return
 	}
 
+	dbger, err := debugger.GetDebugger()
+	if err != nil {
+		log.Fatal(err)
+	}
 	args := targets.Args{}
 	args.Load = *loadF
+	args.Debugger = dbger
 
 	tgt := targets.TargetMap[*targetF]
 	if tgt == nil {
 		log.Fatalf("Unable to find target %q, try 'goocd -target-list' to see available targets.", *targetF)
 	}
 
-	err := tgt.Run(&args)
+	err = tgt.Run(&args)
 	if err != nil {
 		log.Fatal(err)
 	}
