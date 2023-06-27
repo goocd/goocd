@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/goocd/goocd/debugger"
 	"log"
 	"os"
 
@@ -15,6 +14,7 @@ func main() {
 	targetListF := flag.Bool("target-list", false, "List all compiled-in targets")
 	targetF := flag.String("target", "", "Select a target")
 	loadF := flag.String("load", "", "Load file (.elf, .hex, .bin)")
+	readmemu32 := flag.String("readmemu32", "", "Uint32 Hex Memory Address you wish to read")
 
 	flag.Usage = func() {
 		// TODO: customize as needed
@@ -29,20 +29,16 @@ func main() {
 		return
 	}
 
-	dbger, err := debugger.GetDebugger()
-	if err != nil {
-		log.Fatal(err)
-	}
 	args := targets.Args{}
 	args.Load = *loadF
-	args.Debugger = dbger
+	args.ReadMem = *readmemu32
 
 	tgt := targets.TargetMap[*targetF]
 	if tgt == nil {
 		log.Fatalf("Unable to find target %q, try 'goocd -target-list' to see available targets.", *targetF)
 	}
 
-	err = tgt.Run(&args)
+	err := tgt.Run(&args)
 	if err != nil {
 		log.Fatal(err)
 	}

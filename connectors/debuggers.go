@@ -1,4 +1,4 @@
-package debugger
+package connectors
 
 import (
 	"fmt"
@@ -15,9 +15,9 @@ type Debugger interface {
 	Program() error
 }
 
-// TODO: Add direct way of getting the correct debugger if we provide command line tooling for it
+// TODO: Add direct way of getting the correct connectors if we provide command line tooling for it
 
-// GetDebugger is a generalized way to find any implemented debugger connected to the system
+// GetDebugger is a generalized way to find any implemented connectors connected to the system
 func GetDebugger() (Debugger, error) {
 	// Initialize the hid package.
 	if err := hid.Init(); err != nil {
