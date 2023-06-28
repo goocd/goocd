@@ -7,7 +7,8 @@ var TargetMap = make(map[string]Target)
 // Args is the options that come in from the command line
 // and tell a target what to do.
 type Args struct {
-	Load string // file path to load (elf, hex, bin)
+	Load    string // file path to load (elf, hex, bin)
+	ReadMem string
 }
 
 // Target is anything that can be "Run" as a target.

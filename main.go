@@ -14,6 +14,7 @@ func main() {
 	targetListF := flag.Bool("target-list", false, "List all compiled-in targets")
 	targetF := flag.String("target", "", "Select a target")
 	loadF := flag.String("load", "", "Load file (.elf, .hex, .bin)")
+	readmemu32 := flag.String("readmemu32", "", "Uint32 Hex Memory Address you wish to read")
 
 	flag.Usage = func() {
 		// TODO: customize as needed
@@ -30,6 +31,7 @@ func main() {
 
 	args := targets.Args{}
 	args.Load = *loadF
+	args.ReadMem = *readmemu32
 
 	tgt := targets.TargetMap[*targetF]
 	if tgt == nil {
