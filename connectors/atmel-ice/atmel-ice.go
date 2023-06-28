@@ -38,7 +38,7 @@ func (a *AtmelICE) Configure() error {
 		return err
 	}
 
-	//fmt.Printf("%x\n", a.Buffer[:32])
+	//fmt.SPrintf("%x\n", a.Buffer[:32])
 
 	err = a.DAPSWDConfigure(0x0)
 	if err != nil {
@@ -70,7 +70,12 @@ func (a *AtmelICE) Configure() error {
 		return err
 	}
 
-	data, err = a.DAPTransfer(0, 0x2, 0x8, []uint32{0x00000000, 0x4200000, 0x50060400, 0x5006})
+	//data, err = a.DAPTransfer(0, 0x5, 0x8, []uint32{0x00000000, 0x4200000, 0x50060400, 0x5006})
+	//if err != nil {
+	//	return err
+	//}
+
+	data, err = a.DAPTransfer(0, 0x5, 0x8, []uint32{0x0, 0x20040, 0x40650, 0x650})
 	if err != nil {
 		return err
 	}
@@ -80,27 +85,52 @@ func (a *AtmelICE) Configure() error {
 		return err
 	}
 
-	data, err = a.DAPTransfer(0, 0x3, 0x6, []uint32{04000000, 0x50060000})
+	//data, err = a.DAPTransfer(0, 0x3, 0x6, []uint32{0x04000000, 0x50060000})
+	//if err != nil {
+	//	return err
+	//}
+
+	data, err = a.DAPTransfer(0, 0x3, 0x6, []uint32{0x04, 0x650})
 	if err != nil {
 		return err
 	}
 
-	data, err = a.DAPTransfer(0, 0x3, 0x8, []uint32{0xF0000000, 0x0F0E0000})
+	//data, err = a.DAPTransfer(0, 0x3, 0x8, []uint32{0xF0000000, 0x0F0E0000})
+	//if err != nil {
+	//	return err
+	//}
+
+	data, err = a.DAPTransfer(0, 0x3, 0x8, []uint32{0xF0, 0xE0F})
 	if err != nil {
 		return err
 	}
 
-	data, err = a.DAPTransfer(0, 0x8, 0x8, []uint32{0x00000000, 0x01200000, 0xA2050000, 0x0000030E, 0x08F00000, 0x00070E00})
+	//data, err = a.DAPTransfer(0, 0x8, 0x8, []uint32{0x00000000, 0x01200000, 0xA2050000, 0x0000030E, 0x08F00000, 0x00070E00})
+	//if err != nil {
+	//	return err
+	//}
+
+	data, err = a.DAPTransfer(0, 0x8, 0x8, []uint32{0x0, 0x2001, 0x05A2, 0xE030000, 0xF008, 0xE0700})
 	if err != nil {
 		return err
 	}
 
-	data, err = a.DAPTransfer(0, 0x5, 0x8, []uint32{0x00000000, 0x01220000, 0xA20500ED, 0x00E00F0E})
+	//data, err = a.DAPTransfer(0, 0x5, 0x8, []uint32{0x00000000, 0x01220000, 0xA20500ED, 0x00E00F0E})
+	//if err != nil {
+	//	return err
+	//}
+
+	data, err = a.DAPTransfer(0, 0x5, 0x8, []uint32{0x0, 0x2201, 0xED0005A2, 0xE0F00E00})
 	if err != nil {
 		return err
 	}
 
-	data, err = a.DAPTransfer(0, 0x3, 0x5, []uint32{0x40EF00E0, 0x0F0E0000})
+	//data, err = a.DAPTransfer(0, 0x3, 0x5, []uint32{0x40EF00E0, 0x0F0E0000})
+	//if err != nil {
+	//	return err
+	//}
+
+	data, err = a.DAPTransfer(0, 0x3, 0x5, []uint32{0xE000EF40, 0xE0F})
 	if err != nil {
 		return err
 	}
@@ -110,10 +140,7 @@ func (a *AtmelICE) Configure() error {
 
 // Program will actually accept a file stream to be written into board memory. Probably come from a form of parser
 func (a *AtmelICE) ReadAddr32(addr uint32) (uint32, error) {
-	val := make([]byte, 4)
-	binary.LittleEndian.PutUint32(val, addr)
-	addr = binary.BigEndian.Uint32(val)
-	data, err := a.DAPTransfer(0, 0x3, 0x5, []uint32{addr, 0x0F0E0000})
+	data, err := a.DAPTransfer(0, 0x3, 0x5, []uint32{addr, 0xE0F})
 	if err != nil {
 		return 0, err
 	}
@@ -123,13 +150,7 @@ func (a *AtmelICE) ReadAddr32(addr uint32) (uint32, error) {
 }
 
 func (a *AtmelICE) WriteAddr32(addr, value uint32) error {
-	val := make([]byte, 4)
-	binary.LittleEndian.PutUint32(val, addr)
-	addr = binary.BigEndian.Uint32(val)
-
-	binary.LittleEndian.PutUint32(val, value)
-	value = binary.BigEndian.Uint32(val)
-	_, err := a.DAPTransfer(0, 0x2, 0x5, []uint32{addr, 0x0D000000 | (value >> 8), value << 24})
+	_, err := a.DAPTransfer(0, 0x2, 0x5, []uint32{addr, (value<<8)&0xFFFFFF00 | 0xD, (value >> 24) & 0xFF})
 	if err != nil {
 		return err
 	}

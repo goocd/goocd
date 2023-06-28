@@ -2,6 +2,7 @@ package cmsis
 
 import (
 	"encoding/binary"
+	"fmt"
 )
 
 type ReadWriter interface {
@@ -176,10 +177,10 @@ func (c *CMSISDAP) DAPTransfer(idx uint8, count uint8, request byte, data []uint
 	copy(c.Buffer[1:], []byte{DAPTransferCMD, idx, count, request})
 	if len(data) > 0 {
 		for i, tempWord := range data {
-			binary.BigEndian.PutUint32(c.Buffer[5+(4*i):], tempWord)
+			binary.LittleEndian.PutUint32(c.Buffer[5+(4*i):], tempWord)
 		}
 	}
-	//fmt.Printf("O: %x\n", c.Buffer[:32])
+	fmt.Printf("O: %x\n", c.Buffer[:32])
 	err := c.SendAndRead()
 	if err != nil {
 		return nil, err
