@@ -83,6 +83,9 @@ func TestBinFlipping(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	if hex.EncodeToString(ice.Buffer[:12]) != "0005000205044000410d01a5" {
+		t.Fatalf("\nGot:      %x\nExpected: 0005000205044000410d01a5", ice.Buffer[:12])
+	}
 	_, err = ice.ReadAddr32(0x41004004)
 	if err != nil {
 		t.Fatal(err)
