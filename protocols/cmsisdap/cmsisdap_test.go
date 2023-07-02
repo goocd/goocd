@@ -1,8 +1,7 @@
-package cmsis
+package cmsisdap
 
 import (
-	"strconv"
-	"strings"
+	"encoding/binary"
 	"testing"
 )
 
@@ -34,19 +33,7 @@ func TestCMSISDAP_DAPSWJPins(t *testing.T) {
 }
 
 func TestRandom(t *testing.T) {
-	exampleOne := "0xFFFF"
-	exampleTwo := "0xFFFF,3"
-	exampleOne = strings.Split(exampleOne, ",")[0]
-	u, err := strconv.ParseUint(exampleOne, 0, 64)
-	if err != nil {
-		t.Fatalf("Error: %s", err)
-	}
-	t.Logf("ExampleOne: %s transleted to %x", exampleOne, u)
-	exampleTwo = strings.Split(exampleTwo, ",")[0]
-	u, err = strconv.ParseUint(exampleTwo, 0, 64)
-	if err != nil {
-		t.Fatalf("Error: %s", err)
-	}
-	t.Logf("ExampleOne: %s transleted to %x", exampleTwo, u)
-
+	clockBuf := make([]byte, 4)
+	binary.LittleEndian.PutUint32(clockBuf, ClockSpeed2Mhz)
+	t.Logf("%x", binary.BigEndian.Uint32(clockBuf))
 }

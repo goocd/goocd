@@ -1,9 +1,10 @@
 package targets
 
 import (
+	"encoding/binary"
 	"fmt"
 	"github.com/goocd/goocd/core/cortexm4"
-	"github.com/goocd/goocd/protocols/cmsis"
+	"github.com/goocd/goocd/protocols/cmsisdap"
 	"github.com/sstallion/go-hid"
 	"log"
 )
@@ -11,7 +12,7 @@ import (
 func init() {
 	addTarget(&Target{
 		Name:               "atsame51-atmelice",
-		Description:        "Atsame51 using AtemlIce over cmsis-dap",
+		Description:        "Atsame51 using AtemlIce over cmsisdap-dap",
 		SupportsReadMemU32: true,
 		Run: func(args *Args) error {
 
@@ -26,8 +27,29 @@ func init() {
 			// Open the device using the VID and PID.
 			d, err := hid.OpenFirst(0x03eb, 0x2141) // Atmel-ICE VIP & PID
 			checkErr(err)
-			cms := &cmsis.CMSISDAP{ReadWriter: d}
-			checkErr(cms.Configure())
+			cms := &cmsisdap.CMSISDAP{ReadWriter: d}
+
+			// Reverse Endianness of the Clock Speed
+			clockBuf := make([]byte, 4)
+			binary.LittleEndian.PutUint32(clockBuf, cmsisdap.ClockSpeed2Mhz)
+
+			// CMSIS Configure
+			// Get to known state
+			checkErr(cms.DAPDisconnect())
+			// Config Cycles
+			checkErr(cms.DAPSWDConfigure(cmsisdap.SWDConfigClockCycles1 | cmsisdap.SWDConfigNoDataPhase))
+
+			// Todo: figure out what this actually means https://arm-software.github.io/CMSIS_5/DAP/html/group__DAP__SWJ__Sequence.html
+			checkErr(cms.DAPSWJSequence(0x88, []byte{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x9E, 0xE7, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}))
+
+			// Set Clock Speed to 2Mhz. Note: This is debugger Clock Speed not to exceed 10x the chip Max ClockSpeed
+			checkErr(cms.DAPSWJClock(binary.BigEndian.Uint32(clockBuf)))
+			checkErr(cms.DAPTransferConfigure(0x0, 0x4000, 0x0))
+
+			// Connect to Chip
+			checkErr(cms.DAPConnect(cmsisdap.SWDPort))
+
+			// Pass Configured CMS to the Cortex Driver
 			core := cortexm4.DAPTransferCoreAccess{DAPTransferer: cms}
 			checkErr(core.Configure())
 			if args.ReadMemU32Count > 0 {
@@ -39,62 +61,5 @@ func init() {
 			return nil
 		},
 	})
-	//TargetMap["atsame51-atmelice"] = TargetFunc(func(args *Args) error {
-	//	// Initialize the hid package.
-	//	if err := hid.Init(); err != nil {
-	//		log.Fatal(err)
-	//	}
-	//
-	//	// Open the device using the VID and PID.
-	//	d, err := hid.OpenFirst(0x03eb, 0x2141) // Atmel-ICE VIP & PID
-	//	if err != nil {
-	//		log.Fatal(err)
-	//	}
-	//
-	//	cms := &cmsis.CMSISDAP{ReadWriter: d}
-	//	ice := &atmel_ice.AtmelICE{CMSISDAP: cms}
-	//	err = ice.Configure()
-	//	if err != nil {
-	//		log.Fatal(err)
-	//	}
-	//
-	//	//log.Printf("GOT HERE: atsame51-cmsisdap")
-	//
-	//	// Open File, Buffer here etc.
-	//	if args.Load != "" {
-	//		//pgmSrc, err := parserany.Parse(*loadF)
-	//		//chkerr(err)
-	//		//nvm := nvmload.NVMLoader {
-	//		//	ProgramSource: pgmSrc
-	//		//	NVMAccess: reg,
-	//		//}
-	//		//chkerr(nvm.NVMLoad())
-	//	}
-	//
-	//	if args.ReadMem != "" {
-	//		data, err := ice.ReadAddr32(addr)
-	//		if err != nil {
-	//			log.Fatal(err)
-	//		}
-	//
-	//		log.Printf("ReadAddr32[Address: %x, Value: %x]", addr, data)
-	//	}
-	//
-	//	if args.Halt {
-	//		//err = ice.WriteAddr32(debugAddress, debugWriteKey|debugEnable|debugHalt)
-	//		//if err != nil {
-	//		//	log.Fatal(err)
-	//		//}
-	//	}
-	//
-	//	if args.Resume {
-	//		//err = ice.WriteAddr32(debugAddress, debugWriteKey|debugEnable)
-	//		//if err != nil {
-	//		//	log.Fatal(err)
-	//		//}
-	//	}
-	//
-	//	return nil
-	//})
 
 }
