@@ -15,8 +15,9 @@ func main() {
 
 	targetListF := flag.Bool("target-list", false, "List all compiled-in targets")
 	targetF := flag.String("target", "", "Select a target")
-	//loadF := flag.String("load", "", "Load file (.elf, .hex, .bin)")
+	loadF := flag.String("load", "", "Load file (.elfparser, .hex, .bin)")
 	readmemu32 := flag.String("readmemu32", "", "Uint32 Hex Memory Address you wish to read")
+	reset := flag.Bool("reset", false, "Issue Reset Command to target")
 	//Halt := flag.Bool("halt", false, "Halts run time operation")
 	//resume := flag.Bool("resume", false, "Resumes runtime operation")
 
@@ -61,6 +62,13 @@ func main() {
 		args.ReadMemU32Count = int(count)
 	}
 
+	if tgt.SupportsReset && *reset {
+		args.Reset = *reset
+	}
+
+	if tgt.SupportsLoad && *loadF != "" {
+		args.Load = *loadF
+	}
 	//args.Load = *loadF
 	//args.ReadMem = *readmemu32
 	//args.Halt = *Halt

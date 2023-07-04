@@ -218,6 +218,21 @@ func (c *CMSISDAP) sendAndRead() error {
 	return nil
 }
 
+func (c *CMSISDAP) Reset() error {
+	// Set Reset Pin Low
+	_, err := c.DAPSWJPins(0xF, 0x8F, 0)
+	if err != nil {
+		return err
+	}
+
+	// Set Reset Pin High
+	_, err = c.DAPSWJPins(0x8F, 0x8F, 0)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 type ErrBadDAPResponseStatus struct {
 }
 

@@ -2,6 +2,7 @@ package cortexm4
 
 import (
 	"encoding/binary"
+	"fmt"
 	"github.com/goocd/goocd/protocols/cmsisdap"
 )
 
@@ -13,6 +14,20 @@ const (
 	VersionMask    = 0xF0000000
 	PartNumberMask = 0xFFFF000
 	DesignerMask   = 0xFFE
+)
+
+const (
+	FlashPatchCTRLRegister = 0xE0002000
+	FlashPatchCTRLEnable   = 0x1
+	FlashPatchCTRLKey      = 0x2
+)
+
+const (
+	DebugHaltingControlStatusRegister = 0xE000EDF0
+	DebugHaltingControlStatusKey      = 0xA05F0000
+	DebugHaltingControlStatusEnable   = 0x1
+	DebugHaltingControlStatusHalt     = 0x2
+	DebugHaltingControlStatusStep     = 0x3
 )
 
 // Debug Port CTRL Register Mappings
@@ -37,6 +52,14 @@ const (
 const (
 	APSELPOS     = 0x24
 	APBANKSELPOS = 0x4
+)
+
+const (
+	AHBAPDAPEnable   = 0x40
+	AHBAPEnableDebug = 0x20000000
+	DataSizeuint8    = 0x0
+	DataSizeuint16   = 0x1
+	DataSizeuint32   = 0x2
 )
 
 // Port Banks
@@ -168,6 +191,21 @@ func (d *DAPTransferCoreAccess) Configure() (err error) {
 	}
 	// Todo: Validate
 	//fmt.Printf("%x\n", resp)
+	resp, err = d.DAPTransfer(0, 2, d.encodeDAPRequest([]request{
+		{
+			requestByte: byte(cmsisdap.DebugPort | cmsisdap.Write | cmsisdap.PortRegister8),
+			payload:     Bank0,
+		},
+		{
+			requestByte: byte(cmsisdap.AccessPort | cmsisdap.Write | cmsisdap.PortRegister0),
+			payload:     AHBAPEnableDebug | AHBAPDAPEnable | DataSizeuint32,
+		},
+	}))
+	if err != nil {
+		return err
+	}
+	// Todo: Validate
+	//fmt.Printf("%x\n", resp)
 
 	return nil
 }
@@ -197,6 +235,74 @@ func (d *DAPTransferCoreAccess) ReadAddr32(addr uint32, count int) (value uint32
 	return binary.BigEndian.Uint32(resp[3:7]), nil
 }
 
+func (d *DAPTransferCoreAccess) WriteAddr32(addr, value uint32) error {
+	_, err := d.DAPTransfer(0, 3, d.encodeDAPRequest([]request{
+		{
+			// Clear out the Selections Registers to known state
+			requestByte: byte(cmsisdap.DebugPort | cmsisdap.Write | cmsisdap.PortRegister8),
+		},
+		{
+			requestByte: byte(cmsisdap.AccessPort | cmsisdap.Write | cmsisdap.PortRegister4),
+			payload:     addr,
+		},
+		{
+			// Read Data Register
+			requestByte: byte(cmsisdap.AccessPort | cmsisdap.Write | cmsisdap.PortRegisterC),
+			payload:     value,
+		},
+	}))
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (d *DAPTransferCoreAccess) WriteSeqAddr32(addr uint32, value []uint32) error {
+	if len(value) > 101 {
+		return fmt.Errorf("error: DAPTransferCoreAccess.WriteSeqAddr32() len of values is too large")
+	}
+
+	requestBuffer := make([]request, 2, len(value)+2)
+	requestBuffer[0] = request{requestByte: byte(cmsisdap.DebugPort | cmsisdap.Write | cmsisdap.PortRegister8)}
+	requestBuffer[1] = request{requestByte: byte(cmsisdap.AccessPort | cmsisdap.Write | cmsisdap.PortRegister4), payload: addr}
+
+	for _, val := range value {
+		requestBuffer = append(requestBuffer, request{requestByte: byte(cmsisdap.AccessPort | cmsisdap.Write | cmsisdap.PortRegisterC), payload: val})
+	}
+
+	_, err := d.DAPTransfer(0, uint8(len(requestBuffer)), d.encodeDAPRequest(requestBuffer))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (d *DAPTransferCoreAccess) WriteTransfer32(port, portRegister byte, value uint32) error {
+	_, err := d.DAPTransfer(0, 1, d.encodeDAPRequest([]request{
+		{
+			requestByte: port | cmsisdap.Write | portRegister,
+			payload:     value,
+		},
+	}))
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (d *DAPTransferCoreAccess) ReadTransfer32(port, portRegister byte) (uint32, error) {
+	resp, err := d.DAPTransfer(0, 1, d.encodeDAPRequest([]request{
+		{
+			requestByte: port | cmsisdap.Read | portRegister,
+		},
+	}))
+	if err != nil {
+		return 0, err
+	}
+	return binary.BigEndian.Uint32(resp[3:7]), nil
+}
+
 func (d *DAPTransferCoreAccess) encodeDAPRequest(requests []request) []byte {
 	idx := 0
 	for _, req := range requests {
@@ -211,4 +317,26 @@ func (d *DAPTransferCoreAccess) encodeDAPRequest(requests []request) []byte {
 		idx += 4
 	}
 	return d.encodingBuffer[:idx]
+}
+
+func (d *DAPTransferCoreAccess) Halt() error {
+	_, err := d.DAPTransfer(0, 3, d.encodeDAPRequest([]request{
+		{
+			// Clear out the Selections Registers to known state
+			requestByte: byte(cmsisdap.DebugPort | cmsisdap.Write | cmsisdap.PortRegister8),
+		},
+		{
+			requestByte: byte(cmsisdap.AccessPort | cmsisdap.Write | cmsisdap.PortRegister4),
+			payload:     DebugHaltingControlStatusRegister,
+		},
+		{
+			// Read Data Register
+			requestByte: byte(cmsisdap.AccessPort | cmsisdap.Write | cmsisdap.PortRegister0),
+			payload:     DebugHaltingControlStatusKey | DebugHaltingControlStatusHalt | DebugHaltingControlStatusEnable,
+		},
+	}))
+	if err != nil {
+		return err
+	}
+	return nil
 }

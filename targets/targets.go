@@ -9,7 +9,8 @@ var TargetMap = make(map[string]*Target)
 // Args is the options that come in from the command line
 // and tell a target what to do.
 type Args struct {
-	Load string // file path to load (elf, hex, bin)
+	Load  string // file path to load (elfparser, hex, bin)
+	Reset bool
 	// -readmemu32=0xF0000000,5
 	// -readmemu32=0xF0000000 (count=1 implied)
 	ReadMemU32Addr  uint64
@@ -21,8 +22,9 @@ type Target struct {
 	Name               string
 	Description        string
 	SupportsReadMemU32 bool
-
-	Run func(args *Args) error
+	SupportsReset      bool
+	SupportsLoad       bool
+	Run                func(args *Args) error
 }
 
 // TargetFunc let's us describe a target as a simple function.
