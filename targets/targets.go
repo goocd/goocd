@@ -13,18 +13,22 @@ type Args struct {
 	Reset bool
 	// -readmemu32=0xF0000000,5
 	// -readmemu32=0xF0000000 (count=1 implied)
-	ReadMemU32Addr  uint64
-	ReadMemU32Count int
+	ReadMemU32Addr   uint64
+	ReadMemU32Count  int
+	WriteMemU32Addr  uint64
+	WriteMemU32Value uint64
+	WriteMemU32Count int
 }
 
 // Target is anything that can be "Run" as a target.
 type Target struct {
-	Name               string
-	Description        string
-	SupportsReadMemU32 bool
-	SupportsReset      bool
-	SupportsLoad       bool
-	Run                func(args *Args) error
+	Name                string
+	Description         string
+	SupportsReadMemU32  bool
+	SupportsWriteMemU32 bool
+	SupportsReset       bool
+	SupportsLoad        bool
+	Run                 func(args *Args) error
 }
 
 // TargetFunc let's us describe a target as a simple function.

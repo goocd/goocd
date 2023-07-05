@@ -230,12 +230,12 @@ func (d *DAPTransferCoreAccess) ReadAddr32(addr uint32, count int) (value uint32
 		return 0, err
 	}
 	// Todo: Validate
-	//fmt.Printf("%x", resp)
 	// FixMe: Do this parsing properly
-	return binary.BigEndian.Uint32(resp[3:7]), nil
+	return binary.LittleEndian.Uint32(resp[3:7]), nil
 }
 
 func (d *DAPTransferCoreAccess) WriteAddr32(addr, value uint32) error {
+
 	_, err := d.DAPTransfer(0, 3, d.encodeDAPRequest([]request{
 		{
 			// Clear out the Selections Registers to known state
@@ -257,17 +257,20 @@ func (d *DAPTransferCoreAccess) WriteAddr32(addr, value uint32) error {
 	return nil
 }
 
-func (d *DAPTransferCoreAccess) WriteSeqAddr32(addr uint32, value []uint32) error {
+func (d *DAPTransferCoreAccess) WriteSeqAddr32(initialize bool, addr uint32, value []uint32) error {
 	if len(value) > 101 {
 		return fmt.Errorf("error: DAPTransferCoreAccess.WriteSeqAddr32() len of values is too large")
 	}
 
-	requestBuffer := make([]request, 2, len(value)+2)
-	requestBuffer[0] = request{requestByte: byte(cmsisdap.DebugPort | cmsisdap.Write | cmsisdap.PortRegister8)}
-	requestBuffer[1] = request{requestByte: byte(cmsisdap.AccessPort | cmsisdap.Write | cmsisdap.PortRegister4), payload: addr}
-
+	//fmt.Printf("Writing Stuff At Address: %x\n", addr)
+	requestBuffer := make([]request, 0, len(value)+2)
+	if initialize {
+		requestBuffer = append(requestBuffer, request{requestByte: byte(cmsisdap.DebugPort | cmsisdap.Write | cmsisdap.PortRegister8)})
+		requestBuffer = append(requestBuffer, request{requestByte: byte(cmsisdap.AccessPort | cmsisdap.Write | cmsisdap.PortRegister4), payload: addr})
+	}
 	for _, val := range value {
 		requestBuffer = append(requestBuffer, request{requestByte: byte(cmsisdap.AccessPort | cmsisdap.Write | cmsisdap.PortRegisterC), payload: val})
+		//fmt.Printf("AP Write Reg C %x\n", val)
 	}
 
 	_, err := d.DAPTransfer(0, uint8(len(requestBuffer)), d.encodeDAPRequest(requestBuffer))
@@ -300,7 +303,7 @@ func (d *DAPTransferCoreAccess) ReadTransfer32(port, portRegister byte) (uint32,
 	if err != nil {
 		return 0, err
 	}
-	return binary.BigEndian.Uint32(resp[3:7]), nil
+	return binary.LittleEndian.Uint32(resp[3:7]), nil
 }
 
 func (d *DAPTransferCoreAccess) encodeDAPRequest(requests []request) []byte {

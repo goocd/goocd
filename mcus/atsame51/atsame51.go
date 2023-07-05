@@ -29,6 +29,7 @@ const (
 	NVMCTRLADDR        = 0x14
 	NVMCTRLRUNLOCK     = 0x18
 
+	NVMKey      = 0xA500
 	NVMPageSize = 0x200 // 512
 )
 
@@ -72,7 +73,7 @@ func (a *Atsame51) Configure(clockSpeed uint32) error {
 	if err != nil {
 		return err
 	}
-	err = a.DAPTransferConfigure(0x0, 0x4000, 0x0)
+	err = a.DAPTransferConfigure(0x0, 0xFFFF, 0x0)
 	if err != nil {
 		return err
 	}
@@ -100,7 +101,7 @@ func (a *Atsame51) ClearRegionLock() error {
 		return nil
 	}
 
-	//Todo: Clear Lock
+	//TODO: Clear Lock
 
 	return nil
 }
@@ -126,43 +127,54 @@ func (a *Atsame51) LoadProgram(startAddress uint32, rom []byte) error {
 		return err
 	}
 
-	err = a.WriteAddr32(NVMCTRLBaseAddress|NVMCTRLCTRLB, 0xA501)
+	// EraseBlock
+	err = a.NVMCMD(0x1)
 	if err != nil {
 		return err
 	}
 
-	err = a.WaitForCMDClear()
+	err = a.WriteTransfer32(cmsisdap.AccessPort, cmsisdap.PortRegister0, 0x52)
 	if err != nil {
 		return err
 	}
 
-	err = a.WriteAddr32(NVMCTRLBaseAddress|NVMCTRLINTFLAG, 0x1)
-	if err != nil {
-		return err
-	}
+	buffer := make([]uint32, 0, 64)
+	i := 0
+	initialize := true
+	for _, val := range rom32 {
+		buffer = append(buffer, val)
+		if len(buffer) < 64 {
+			continue
+		}
 
-	for i := range rom32 {
-		fmt.Printf("Rom32: Len %d\n", len(rom32))
-		err = a.WriteAddr32(startAddress+uint32(i*4), rom32[i]) // AKA 0x80 AKA 512 bytes AKA 1 Page Size
+		//fmt.Printf("Index: %d\n", i)
+		err = a.WriteSeqAddr32(initialize, startAddress+(uint32(i)*4), buffer) // AKA 0x80 AKA 512 bytes AKA 1 Page Size
 		if err != nil {
 			return fmt.Errorf("error: Atsame51.LoadProgram() WriteSeqAdd32 Error: %+v", err)
 		}
+		initialize = false
+		i += 64
+		buffer = buffer[:0]
 
-		err = a.WriteAddr32(NVMCTRLBaseAddress|NVMCTRLCTRLB, 0xA503)
-		if err != nil {
-			return fmt.Errorf("error: Atsame51.LoadProgram() WriteAddr32 Error: %+v", err)
-		}
-
-		err = a.WaitForCMDClear()
-		if err != nil {
-			return fmt.Errorf("error: Atsame51.LoadProgram() WaitForCMDClear Error: %+v", err)
-		}
-
-		err = a.WriteAddr32(NVMCTRLBaseAddress|NVMCTRLINTFLAG, 0x1)
-		if err != nil {
-			return fmt.Errorf("error: Atsame51.LoadProgram() WriteAddr32 Error: %+v", err)
+		if i%128 == 0 { // 128*4 = 512 == 1 page
+			err = a.NVMCMD(0x3)
+			if err != nil {
+				return fmt.Errorf("error: Atsame51.LoadProgram() WriteAddr32 Error: %+v", err)
+			}
+			initialize = true
 		}
 	}
+
+	err = a.WriteSeqAddr32(initialize, startAddress+(uint32(i)*4), buffer) // AKA 0x80 AKA 512 bytes AKA 1 Page Size
+	if err != nil {
+		return fmt.Errorf("error: Atsame51.LoadProgram() WriteSeqAdd32 Error: %+v", err)
+	}
+
+	err = a.NVMCMD(0x3)
+	if err != nil {
+		return fmt.Errorf("error: Atsame51.LoadProgram() WriteAddr32 Error: %+v", err)
+	}
+
 	return nil
 }
 
@@ -177,14 +189,6 @@ func (a *Atsame51) ConvertByteSliceUint32Slice(rom []byte) ([]uint32, error) {
 		rom32[i] = binary.LittleEndian.Uint32(rom[i*4:])
 	}
 
-	//romSegements := make([][]uint32, 0, (len(rom32)/128)+1)
-	//
-	//for i := 0; i <= len(rom32)/128; i++ {
-	//	buffer := make([]uint32, 128)
-	//	copy(buffer, rom32[i*128:])
-	//	romSegements = append(romSegements, buffer)
-	//}
-
 	return rom32, nil
 }
 
@@ -196,22 +200,51 @@ func (a *Atsame51) WaitForCMDClear() error {
 			return err
 		}
 
+		//fmt.Printf("ValAP: %x\n", val)
 		if val&0x1 > 0 {
 			break
 		}
 
-		val, err = a.ReadTransfer32(cmsisdap.DebugPort, cmsisdap.PortRegisterC)
-		if err != nil {
-			return fmt.Errorf("error: Atsame51.LoadProgram() transfer Error: %+v", err)
-		}
-
-		if val&0x1 > 0 {
-			break
-		}
-
-		if time.Since(ti) > time.Second*3 {
+		if time.Since(ti) > time.Second*1 {
 			return fmt.Errorf("error: Atsame51.LoadProgram() timedout waiting for CMD clear")
 		}
+	}
+
+	// Clear Interrupt
+	err := a.WriteAddr32(NVMCTRLBaseAddress|NVMCTRLINTFLAG, 0x1)
+	if err != nil {
+		return err
+	}
+
+	ti = time.Now()
+	for {
+		// Wait For interrupt to be cleared after you wrote it
+		val, err := a.ReadAddr32(NVMCTRLBaseAddress|NVMCTRLINTFLAG, 1)
+		if err != nil {
+			return err
+		}
+
+		//fmt.Printf("ValAP: %x\n", val)
+		if val&0x1 == 0 {
+			break
+		}
+
+		if time.Since(ti) > time.Second*1 {
+			return fmt.Errorf("error: Atsame51.LoadProgram() timedout waiting for CMD clear")
+		}
+	}
+
+	return nil
+}
+
+func (a *Atsame51) NVMCMD(cmd uint32) error {
+	err := a.WriteAddr32(NVMCTRLBaseAddress|NVMCTRLCTRLB, NVMKey|cmd)
+	if err != nil {
+		return err
+	}
+	err = a.WaitForCMDClear()
+	if err != nil {
+		return err
 	}
 
 	return nil

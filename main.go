@@ -17,6 +17,7 @@ func main() {
 	targetF := flag.String("target", "", "Select a target")
 	loadF := flag.String("load", "", "Load file (.elfparser, .hex, .bin)")
 	readmemu32 := flag.String("readmemu32", "", "Uint32 Hex Memory Address you wish to read")
+	writememu32 := flag.String("writememu32", "", "Uint32 Hex Memory Address and Value you wish to write.")
 	reset := flag.Bool("reset", false, "Issue Reset Command to target")
 	//Halt := flag.Bool("halt", false, "Halts run time operation")
 	//resume := flag.Bool("resume", false, "Resumes runtime operation")
@@ -47,7 +48,7 @@ func main() {
 		if !strings.HasPrefix(splitReadMem[0], "0x") {
 			base = 16
 		}
-		addr, err := strconv.ParseUint(*readmemu32, base, 64)
+		addr, err := strconv.ParseUint(splitReadMem[0], base, 64)
 		if err != nil {
 			log.Fatalf("Unable to parse %s into an address + count", *readmemu32)
 		}
@@ -57,9 +58,48 @@ func main() {
 			if err != nil {
 				log.Fatalf("Unable to parse %s into an address + count", *readmemu32)
 			}
+			if count > 0 {
+				log.Fatalf("Unable to parse %s into an address + count", *readmemu32)
+			}
 		}
 		args.ReadMemU32Addr = addr
 		args.ReadMemU32Count = int(count)
+	}
+
+	if tgt.SupportsWriteMemU32 && *writememu32 != "" {
+		splitReadMem := strings.Split(*writememu32, ",")
+		if len(splitReadMem) < 2 {
+			log.Fatalf("Unable to parse %s into an address + value + count properly", *writememu32)
+		}
+
+		base := 0
+		if !strings.HasPrefix(splitReadMem[0], "0x") {
+			base = 16
+		}
+		addr, err := strconv.ParseUint(splitReadMem[0], base, 64)
+		if err != nil {
+			log.Fatalf("Unable to parse %s into an address + value + count properly", *writememu32)
+		}
+
+		value, err := strconv.ParseUint(splitReadMem[1], base, 64)
+		if err != nil {
+			log.Fatalf("Unable to parse %s into an address + value + count properly", *writememu32)
+		}
+
+		count := int64(1)
+		if len(splitReadMem) > 2 {
+			count, err = strconv.ParseInt(splitReadMem[2], 0, 64)
+			if err != nil {
+				log.Fatalf("Unable to parse %s into an address + count", *readmemu32)
+			}
+
+			if count > 0 {
+				log.Fatalf("Unable to parse %s into an address + count", *readmemu32)
+			}
+		}
+		args.WriteMemU32Addr = addr
+		args.WriteMemU32Value = value
+		args.WriteMemU32Count = int(count)
 	}
 
 	if tgt.SupportsReset && *reset {
@@ -69,6 +109,7 @@ func main() {
 	if tgt.SupportsLoad && *loadF != "" {
 		args.Load = *loadF
 	}
+
 	//args.Load = *loadF
 	//args.ReadMem = *readmemu32
 	//args.Halt = *Halt
