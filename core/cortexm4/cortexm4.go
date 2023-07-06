@@ -97,6 +97,7 @@ type request struct {
 	payload     uint32
 }
 
+// Configure
 func (d *DAPTransferCoreAccess) Configure() (err error) {
 	// Read Debug Port IDCODE
 	resp, err := d.DAPTransfer(0, 1, d.encodeDAPRequest([]request{
@@ -109,7 +110,6 @@ func (d *DAPTransferCoreAccess) Configure() (err error) {
 	}
 	_ = resp
 	// Todo: Validate
-	//fmt.Printf("%x\n", resp)
 
 	// Debug Power Enable
 	resp, err = d.DAPTransfer(0, 5, d.encodeDAPRequest([]request{
@@ -120,7 +120,7 @@ func (d *DAPTransferCoreAccess) Configure() (err error) {
 		{
 			// Enable Debug Power
 			requestByte: byte(cmsisdap.DebugPort | cmsisdap.Write | cmsisdap.PortRegister4),
-			payload:     CSYSPWRUPREQEnable | CDBGPWRUPREQEnable | 0x20,
+			payload:     CSYSPWRUPREQEnable | CDBGPWRUPREQEnable,
 		},
 		{
 			// Read Back Register for validation
@@ -141,7 +141,6 @@ func (d *DAPTransferCoreAccess) Configure() (err error) {
 	}
 
 	// Todo: Validate
-	//fmt.Printf("%x\n", resp)
 
 	resp, err = d.DAPTransfer(0, 1, d.encodeDAPRequest([]request{
 		{
@@ -154,8 +153,8 @@ func (d *DAPTransferCoreAccess) Configure() (err error) {
 	}
 
 	// Todo: Validate
-	//fmt.Printf("%x\n", resp)
 
+	// Enable Debug Power. There's a 100% chance this can be simplified with a loop and verified rather than just doing this repeatedly in sequence
 	resp, err = d.DAPTransfer(0, 3, d.encodeDAPRequest([]request{
 		{
 			// Read Back Register for validation
@@ -176,7 +175,8 @@ func (d *DAPTransferCoreAccess) Configure() (err error) {
 	}
 
 	// Todo: Validate
-	//fmt.Printf("%x\n", resp)
+
+	// Read Access Port IDCODE
 	resp, err = d.DAPTransfer(0, 2, d.encodeDAPRequest([]request{
 		{
 			requestByte: byte(cmsisdap.DebugPort | cmsisdap.Write | cmsisdap.PortRegister8),
@@ -190,7 +190,8 @@ func (d *DAPTransferCoreAccess) Configure() (err error) {
 		return err
 	}
 	// Todo: Validate
-	//fmt.Printf("%x\n", resp)
+
+	// Initialize Debugging in the AHB-AP with DataSize 32 bit
 	resp, err = d.DAPTransfer(0, 2, d.encodeDAPRequest([]request{
 		{
 			requestByte: byte(cmsisdap.DebugPort | cmsisdap.Write | cmsisdap.PortRegister8),
@@ -205,11 +206,11 @@ func (d *DAPTransferCoreAccess) Configure() (err error) {
 		return err
 	}
 	// Todo: Validate
-	//fmt.Printf("%x\n", resp)
 
 	return nil
 }
 
+// ReadAddr32 does direct memory access and reads a 32 bit value from a provided address
 func (d *DAPTransferCoreAccess) ReadAddr32(addr uint32, count int) (value uint32, err error) {
 	// Todo: Take into account the count and continuous read
 	resp, err := d.DAPTransfer(0, 3, d.encodeDAPRequest([]request{
@@ -234,6 +235,7 @@ func (d *DAPTransferCoreAccess) ReadAddr32(addr uint32, count int) (value uint32
 	return binary.LittleEndian.Uint32(resp[3:7]), nil
 }
 
+// WriteAddr32 is a simple way to write a value to a given address
 func (d *DAPTransferCoreAccess) WriteAddr32(addr, value uint32) error {
 
 	_, err := d.DAPTransfer(0, 3, d.encodeDAPRequest([]request{
@@ -257,6 +259,10 @@ func (d *DAPTransferCoreAccess) WriteAddr32(addr, value uint32) error {
 	return nil
 }
 
+// WriteSeqAddr32 does sequential write transactions to the AHB-AccessPort address provided based off how many values are in the buffer.
+// Note: This is heavily affected by the CSW register (PortRegister 0 of the AccessPort) and may have different results if not left on the default write mode
+// Note 2: Some Write operations auto increment internally completely separately from the CSW.
+// Example: The NVM Page Buffer auto increments for every request and only needs to be updated after a complete page write is committed.
 func (d *DAPTransferCoreAccess) WriteSeqAddr32(initialize bool, addr uint32, value []uint32) error {
 	if len(value) > 101 {
 		return fmt.Errorf("error: DAPTransferCoreAccess.WriteSeqAddr32() len of values is too large")
@@ -281,6 +287,7 @@ func (d *DAPTransferCoreAccess) WriteSeqAddr32(initialize bool, addr uint32, val
 	return nil
 }
 
+// WriteTransfer32 A simple way to abstract doing a single write transaction rather than a complete write which does multiple commands at once
 func (d *DAPTransferCoreAccess) WriteTransfer32(port, portRegister byte, value uint32) error {
 	_, err := d.DAPTransfer(0, 1, d.encodeDAPRequest([]request{
 		{
@@ -294,6 +301,8 @@ func (d *DAPTransferCoreAccess) WriteTransfer32(port, portRegister byte, value u
 	return nil
 }
 
+// ReadTransfer32 A simple Way to abstract doing a single transaction rather than a complete Read which alters a few other registers.
+// Always returns a uint32, up to the Caller to ensure they read the correct value out of it.
 func (d *DAPTransferCoreAccess) ReadTransfer32(port, portRegister byte) (uint32, error) {
 	resp, err := d.DAPTransfer(0, 1, d.encodeDAPRequest([]request{
 		{
@@ -306,6 +315,8 @@ func (d *DAPTransferCoreAccess) ReadTransfer32(port, portRegister byte) (uint32,
 	return binary.LittleEndian.Uint32(resp[3:7]), nil
 }
 
+// encodeDAPRequest Simple way to just simplify how we use DAP Transfer requests.
+// TODO: Decide if it makes sense for this and the type to live here rather than in CMSISDAP
 func (d *DAPTransferCoreAccess) encodeDAPRequest(requests []request) []byte {
 	idx := 0
 	for _, req := range requests {
@@ -322,6 +333,7 @@ func (d *DAPTransferCoreAccess) encodeDAPRequest(requests []request) []byte {
 	return d.encodingBuffer[:idx]
 }
 
+// Halt access the cortex DHCSR register and writes the Halt bits according to CorextM4 specifications 
 func (d *DAPTransferCoreAccess) Halt() error {
 	_, err := d.DAPTransfer(0, 3, d.encodeDAPRequest([]request{
 		{

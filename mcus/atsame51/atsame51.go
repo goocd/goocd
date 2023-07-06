@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/goocd/goocd/core/cortexm4"
+	"github.com/goocd/goocd/fileformats"
 	"github.com/goocd/goocd/protocols/cmsisdap"
 	"time"
 )
@@ -42,6 +43,7 @@ type Atsame51 struct {
 	*cortexm4.DAPTransferCoreAccess
 }
 
+// Configure Debugger with specs that work on the Atsame51
 func (a *Atsame51) Configure(clockSpeed uint32) error {
 	if a.CMSISDAP == nil || a.DAPTransferCoreAccess == nil {
 		return fmt.Errorf("error: Atsame51.Configure() missing required dependencies")
@@ -51,7 +53,7 @@ func (a *Atsame51) Configure(clockSpeed uint32) error {
 	clockBuf := make([]byte, 4)
 	binary.LittleEndian.PutUint32(clockBuf, clockSpeed)
 
-	// CMSIS Configure for the Atsame51
+	// Debugger/CMSIS Configure for the Atsame51
 
 	// Get to known state
 	err := a.DAPDisconnect()
@@ -73,6 +75,7 @@ func (a *Atsame51) Configure(clockSpeed uint32) error {
 	if err != nil {
 		return err
 	}
+	// TODO: Tune this in. This extreme example was simple to let large transfers finish before returning
 	err = a.DAPTransferConfigure(0x0, 0xFFFF, 0x0)
 	if err != nil {
 		return err
@@ -83,6 +86,7 @@ func (a *Atsame51) Configure(clockSpeed uint32) error {
 		return err
 	}
 
+	// Cortex Configuration
 	err = a.DAPTransferCoreAccess.Configure()
 	if err != nil {
 		return err
@@ -107,21 +111,26 @@ func (a *Atsame51) ClearRegionLock() error {
 }
 
 func (a *Atsame51) LoadProgram(startAddress uint32, rom []byte) error {
-	rom32, err := a.ConvertByteSliceUint32Slice(rom)
+	// Convert Rom to useable state
+	rom32, err := fileformats.ConvertByteSliceUint32Slice(rom)
 	if err != nil {
 		return err
 	}
 
+	// Halt MCU
 	err = a.Halt()
 	if err != nil {
 		return err
 	}
 
+	// Clear Locks
 	err = a.ClearRegionLock()
 	if err != nil {
 		return err
 	}
 
+	// Sets Start Address of NVM CMDEX Commands.
+	// [In English] Basically just makes the NVM Controller Point to the address you provide as the target for future operations.
 	err = a.WriteAddr32(NVMCTRLBaseAddress|NVMCTRLADDR, 0x10000)
 	if err != nil {
 		return err
@@ -178,33 +187,26 @@ func (a *Atsame51) LoadProgram(startAddress uint32, rom []byte) error {
 	return nil
 }
 
-func (a *Atsame51) ConvertByteSliceUint32Slice(rom []byte) ([]uint32, error) {
-	if len(rom)%4 > 0 {
-		return nil, fmt.Errorf("error: Atsame51.ConvertByteSliceUint32Slice() Misaligned Rom")
-	}
+// Todo: Maybe add custom time out options
 
-	rom32 := make([]uint32, len(rom)/4)
-
-	for i := range rom32 {
-		rom32[i] = binary.LittleEndian.Uint32(rom[i*4:])
-	}
-
-	return rom32, nil
-}
-
-func (a *Atsame51) WaitForCMDClear() error {
+// WaitForNVMCMDClear reads the NVM CMD register till it's complete or times out
+// Then it writes the first bit to clear the flag for the next time it needs to wait
+func (a *Atsame51) WaitForNVMCMDClear() error {
 	ti := time.Now()
 	for {
+		// Read Flag
 		val, err := a.ReadAddr32(NVMCTRLBaseAddress|NVMCTRLINTFLAG, 1)
 		if err != nil {
 			return err
 		}
 
 		//fmt.Printf("ValAP: %x\n", val)
+		// Bitwise Flag check
 		if val&0x1 > 0 {
 			break
 		}
 
+		// Timeout
 		if time.Since(ti) > time.Second*1 {
 			return fmt.Errorf("error: Atsame51.LoadProgram() timedout waiting for CMD clear")
 		}
@@ -218,7 +220,7 @@ func (a *Atsame51) WaitForCMDClear() error {
 
 	ti = time.Now()
 	for {
-		// Wait For interrupt to be cleared after you wrote it
+		// Wait For interrupt to be cleared after you wrote to it
 		val, err := a.ReadAddr32(NVMCTRLBaseAddress|NVMCTRLINTFLAG, 1)
 		if err != nil {
 			return err
@@ -242,7 +244,7 @@ func (a *Atsame51) NVMCMD(cmd uint32) error {
 	if err != nil {
 		return err
 	}
-	err = a.WaitForCMDClear()
+	err = a.WaitForNVMCMDClear()
 	if err != nil {
 		return err
 	}

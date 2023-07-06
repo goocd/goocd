@@ -1,5 +1,7 @@
 package cmsisdap
 
+// TODO: JTAG stuff
+
 // DAP Commands
 const (
 	DAPInfoCMD           = 0x0
