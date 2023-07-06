@@ -35,13 +35,13 @@ func init() {
 			if args.WriteMemU32Count > 0 {
 				err := atsam.WriteAddr32(uint32(args.WriteMemU32Addr), uint32(args.WriteMemU32Value))
 				checkErr(err)
-				fmt.Printf("WriteAddr32[Address: 0x%x, Value: 0x%x]", args.ReadMemU32Addr, args.WriteMemU32Value)
+				fmt.Printf("WriteAddr32[Address: 0x%x, Value: 0x%x\n]", args.ReadMemU32Addr, args.WriteMemU32Value)
 			}
 
 			if args.ReadMemU32Count > 0 {
 				val, err := atsam.ReadAddr32(uint32(args.ReadMemU32Addr), args.ReadMemU32Count)
 				checkErr(err)
-				fmt.Printf("ReadAddr32[Address: 0x%x, Value: 0x%x]", args.ReadMemU32Addr, val)
+				fmt.Printf("ReadAddr32[Address: 0x%x, Value: 0x%x]\n", args.ReadMemU32Addr, val)
 			}
 
 			if args.Load != "" {
@@ -49,13 +49,13 @@ func init() {
 				checkErr(err)
 				err = atsam.LoadProgram(uint32(addr), rom)
 				checkErr(err)
-				fmt.Printf("Successfully Flashed Rom")
+				fmt.Printf("Successfully Flashed Rom\n")
 			}
 
 			if args.Reset {
 				err = atsam.Reset()
 				checkErr(err)
-				fmt.Printf("Successfully Reset")
+				fmt.Printf("Successfully Reset\n")
 			}
 
 			_ = cms.DAPDisconnect()
