@@ -1,0 +1,3 @@
+
+# ignore manually downloaded atpack files
+*.atpack

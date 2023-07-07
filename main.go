@@ -15,9 +15,9 @@ func main() {
 
 	targetListF := flag.Bool("target-list", false, "List all compiled-in targets")
 	targetF := flag.String("target", "", "Select a target")
-	loadF := flag.String("load", "", "Load file (.elfparser, .hex, .bin)")
-	readmemu32 := flag.String("readmemu32", "", "Uint32 Hex Memory Address you wish to read")
-	writememu32 := flag.String("writememu32", "", "Uint32 Hex Memory Address and Value you wish to write.")
+	loadF := flag.String("load", "", "Load program file (.elf, .hex, .bin) to flash, base address implied from file or defaults based on target")
+	readmemu32 := flag.String("readmemu32", "", "uint32 memory address you wish to read followed by optional 32-bit word count, e.g. '0x20004000,5'")
+	writememu32 := flag.String("writememu32", "", "uint32 memory address and value you wish to write and optional 32-bit word count, comma separated, e.g. '0x20004000,0xF0E0D0C0,1'")
 	reset := flag.Bool("reset", false, "Issue Reset Command to target")
 	//Halt := flag.Bool("halt", false, "Halts run time operation")
 	//resume := flag.Bool("resume", false, "Resumes runtime operation")
@@ -44,22 +44,18 @@ func main() {
 
 	if tgt.SupportsReadMemU32 && *readmemu32 != "" {
 		splitReadMem := strings.Split(*readmemu32, ",")
-		base := 0
-		if !strings.HasPrefix(splitReadMem[0], "0x") {
-			base = 16
-		}
-		addr, err := strconv.ParseUint(splitReadMem[0], base, 64)
+		addr, err := strconv.ParseUint(splitReadMem[0], 0, 64) // supports hex, dec, oct, bin
 		if err != nil {
-			log.Fatalf("Unable to parse %s into an address + count", *readmemu32)
+			log.Fatalf("Unable to parse %q into an address + count: %v", *readmemu32, err)
 		}
 		count := int64(1)
 		if len(splitReadMem) > 1 {
 			count, err = strconv.ParseInt(splitReadMem[1], 0, 64)
 			if err != nil {
-				log.Fatalf("Unable to parse %s into an address + count", *readmemu32)
+				log.Fatalf("Unable to parse %q into an address + count: %v", *readmemu32, err)
 			}
-			if count > 0 {
-				log.Fatalf("Unable to parse %s into an address + count", *readmemu32)
+			if count < 0 {
+				log.Fatalf("Invalid count %d", count)
 			}
 		}
 		args.ReadMemU32Addr = addr
@@ -69,21 +65,16 @@ func main() {
 	if tgt.SupportsWriteMemU32 && *writememu32 != "" {
 		splitReadMem := strings.Split(*writememu32, ",")
 		if len(splitReadMem) < 2 {
-			log.Fatalf("Unable to parse %s into an address + value + count properly", *writememu32)
+			log.Fatalf("Unable to parse %q into an address + value + count properly", *writememu32)
+		}
+		addr, err := strconv.ParseUint(splitReadMem[0], 0, 64)
+		if err != nil {
+			log.Fatalf("Unable to parse %q into an address + value + count properly: %v", *writememu32, err)
 		}
 
-		base := 0
-		if !strings.HasPrefix(splitReadMem[0], "0x") {
-			base = 16
-		}
-		addr, err := strconv.ParseUint(splitReadMem[0], base, 64)
+		value, err := strconv.ParseUint(splitReadMem[1], 0, 64)
 		if err != nil {
-			log.Fatalf("Unable to parse %s into an address + value + count properly", *writememu32)
-		}
-
-		value, err := strconv.ParseUint(splitReadMem[1], base, 64)
-		if err != nil {
-			log.Fatalf("Unable to parse %s into an address + value + count properly", *writememu32)
+			log.Fatalf("Unable to parse %q into an address + value + count properly: %v", *writememu32, err)
 		}
 
 		count := int64(1)
