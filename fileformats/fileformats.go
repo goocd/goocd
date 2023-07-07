@@ -1,11 +1,11 @@
+// Package fileformats exists as a general owner for
+// raw file formatting utility funcs and interfaces.
 package fileformats
 
 import (
 	"encoding/binary"
 	"fmt"
 )
-
-// This package exists just as a general owner for raw file formatting utility funcs
 
 // Todo: Maybe provide auto alignment rather than erroring?
 

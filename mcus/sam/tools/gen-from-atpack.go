@@ -19,6 +19,10 @@ import (
 func main() {
 
 	keepF := flag.Bool("keep", false, "Keep temporary directory with svd files instead of deleting it upon exit")
+	flag.Usage = func() {
+		fmt.Fprintf(CommandLine.Output(), "Usage of gen-from-atpack: a tool to extract SVD files from an Atmel/Microchp .atpack (zip) file and run the result through gen-device-svd.  Use this to add support for additional Atmel/Microchip processors.\n", os.Args[0])
+		PrintDefaults()
+	}
 	flag.Parse()
 
 	args := flag.Args()

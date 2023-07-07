@@ -1,12 +1,16 @@
 package atsame51
 
+// TODO: split this apart and remove this file+dir, constants
+// can come from sam/atsame51j20a instead
+
 import (
 	"encoding/binary"
 	"fmt"
+	"time"
+
 	"github.com/goocd/goocd/core/cortexm4"
 	"github.com/goocd/goocd/fileformats"
 	"github.com/goocd/goocd/protocols/cmsisdap"
-	"time"
 )
 
 const (

@@ -1,3 +1,5 @@
+github.com/marcinbor85/gohex v0.0.0-20210308104911-55fb1c624d84 h1:hyAgCuG5nqTMDeUD8KZs7HSPs6KprPgPP8QmGV8nyvk=
+github.com/marcinbor85/gohex v0.0.0-20210308104911-55fb1c624d84/go.mod h1:Pb6XcsXyropB9LNHhnqaknG/vEwYztLkQzVCHv8sQ3M=
 github.com/sstallion/go-hid v0.14.0 h1:bSCzyw5E9lGrdQb1NXgRYfmf/z+B+DfSftDlmjOMbfk=
 github.com/sstallion/go-hid v0.14.0/go.mod h1:UaqSxWjbdX9mId5JiqsMAnVtZymx/GSvQMgnzHMks2M=
 golang.org/x/sys v0.8.0 h1:EBmGv8NaZBZTWvrbjNoL6HVt+IVy3QDQpJs7VRIw3tU=
