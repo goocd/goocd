@@ -4,6 +4,9 @@ import (
 	"debug/elf"
 	"io/ioutil"
 	"sort"
+
+	"github.com/goocd/goocd/fileformats"
+	"github.com/goocd/goocd/fileformats/mempgm"
 )
 
 // NOTE: borrowed from TinyGo's builder/objcopy.go
@@ -70,8 +73,11 @@ func ExtractROM(path string) (uint64, []byte, error) {
 	}
 	sort.Sort(progs)
 
+	// log.Printf("progs: %#v", progs)
+
 	var rom []byte
 	for _, prog := range progs {
+		// log.Printf("prog addr: %X", prog.Paddr)
 		romEnd := progs[0].Paddr + uint64(len(rom))
 		if prog.Paddr > romEnd && prog.Paddr < romEnd+16 {
 			// Sometimes, the linker seems to insert a bit of padding between
@@ -90,6 +96,7 @@ func ExtractROM(path string) (uint64, []byte, error) {
 		if err != nil {
 			return 0, nil, objcopyError{"failed to extract segment from ELF file: " + path, err}
 		}
+		// log.Printf("prog len: %d", len(data))
 		rom = append(rom, data...)
 	}
 	if progs[0].Paddr < startAddr {
@@ -102,4 +109,20 @@ func ExtractROM(path string) (uint64, []byte, error) {
 	} else {
 		return progs[0].Paddr, rom, nil
 	}
+}
+
+// ParseFromPath returns a ProgramReader from the data in an ELF file.
+func ParseFromPath(filePath string) (fileformats.ProgramReader, error) {
+	addr, b, err := ExtractROM(filePath)
+	if err != nil {
+		return nil, err
+	}
+	return &mempgm.MemProgramReader{
+		MemProgramList: []mempgm.MemProgram{
+			{
+				StartAddress: addr,
+				ByteSlice:    b,
+			},
+		},
+	}, nil
 }
