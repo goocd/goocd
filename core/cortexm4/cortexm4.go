@@ -2,7 +2,6 @@ package cortexm4
 
 import (
 	"encoding/binary"
-	"fmt"
 	"github.com/goocd/goocd/protocols/cmsisdap"
 )
 
@@ -261,7 +260,7 @@ func (d *DAPTransferCoreAccess) WriteAddr32(addr, value uint32) error {
 
 // WriteSeqAddr32 does sequential write transactions to the AHB-AccessPort address provided based off how many values are in the buffer.
 func (d *DAPTransferCoreAccess) WriteSeqAddr32(addr uint32, value []uint32) error {
-	fmt.Printf("Seq Write Request with Len: %d\n", len(value))
+	//fmt.Printf("Seq Write Request with Len: %d at Address: %x\n", len(value), addr)
 	requestBuffer := make([]request, 0, len(value)+2)
 	requestBuffer = append(requestBuffer, request{requestByte: byte(cmsisdap.DebugPort | cmsisdap.Write | cmsisdap.PortRegister8)})
 	requestBuffer = append(requestBuffer, request{requestByte: byte(cmsisdap.AccessPort | cmsisdap.Write | cmsisdap.PortRegister4), payload: addr})
@@ -269,7 +268,7 @@ func (d *DAPTransferCoreAccess) WriteSeqAddr32(addr uint32, value []uint32) erro
 		requestBuffer = append(requestBuffer, request{requestByte: byte(cmsisdap.AccessPort | cmsisdap.Write | cmsisdap.PortRegisterC), payload: val})
 		//fmt.Printf("Appending Val: %x\n", val)
 		if len(requestBuffer) >= 66 {
-			fmt.Printf("Sending Transfer with Len: %d\n", len(requestBuffer))
+			//fmt.Printf("Sending Transfer with Len: %d\n", len(requestBuffer))
 			_, err := d.DAPTransfer(0, uint8(len(requestBuffer)), d.encodeDAPRequest(requestBuffer))
 			if err != nil {
 				return err
@@ -279,7 +278,7 @@ func (d *DAPTransferCoreAccess) WriteSeqAddr32(addr uint32, value []uint32) erro
 	}
 
 	if len(requestBuffer) > 0 {
-		fmt.Printf("Sending Transfer with Len: %d\n", len(requestBuffer))
+		//fmt.Printf("Sending Transfer with Len: %d\n", len(requestBuffer))
 		_, err := d.DAPTransfer(0, uint8(len(requestBuffer)), d.encodeDAPRequest(requestBuffer))
 		if err != nil {
 			return err

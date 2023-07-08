@@ -50,7 +50,8 @@ func init() {
 				addr, rom, err := elfparser.ExtractROM(args.Load)
 				checkErr(err)
 				nvm := &samflash.NVMFlash{
-					Cortex:                   core,
+					CMSISDAP:                 cms,
+					DAPTransferCoreAccess:    core,
 					WriteAddress:             uint32(addr),
 					EraseMultiplyer:          16, // Not easily Parsable, but in the Data sheet for the chip in the memory organization  section of NVMController
 					NVMControllerAddress:     atsame51j20a.NVMCTRL_Addr,
@@ -71,7 +72,7 @@ func init() {
 					NVMEraseCMD:  atsame51j20a.NVMCTRL_CTRLB_CMD_EB,
 					NVMWriteCMD:  atsame51j20a.NVMCTRL_CTRLB_CMD_WP,
 				}
-
+				_ = nvm
 				err = nvm.LoadProgram(rom)
 				//err = atsam.LoadProgram(uint32(addr), rom)
 				checkErr(err)

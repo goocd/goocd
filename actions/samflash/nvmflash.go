@@ -3,6 +3,7 @@ package samflash
 import (
 	"encoding/binary"
 	"fmt"
+	"github.com/goocd/goocd/core/cortexm4"
 	"github.com/goocd/goocd/protocols/cmsisdap"
 	"time"
 )
@@ -26,16 +27,17 @@ const (
 	NVMCTRL_PARAM_PSZ_1024 = 0x7
 )
 
-type Cortex interface {
-	Halt() error
-	ReadAddr32(addr uint32, count int) (value uint32, err error)
-	WriteAddr32(addr, value uint32) error
-	WriteSeqAddr32(addr uint32, value []uint32) error
-	WriteTransfer32(port, portRegister byte, value uint32) error
-}
+//type Cortex interface {
+//	Halt() error
+//	ReadAddr32(addr uint32, count int) (value uint32, err error)
+//	WriteAddr32(addr, value uint32) error
+//	WriteSeqAddr32(addr uint32, value []uint32) error
+//	WriteTransfer32(port, portRegister byte, value uint32) error
+//}
 
 type NVMFlash struct {
-	Cortex
+	*cmsisdap.CMSISDAP
+	*cortexm4.DAPTransferCoreAccess
 
 	WriteSize       uint32
 	PageCount       uint32
@@ -65,16 +67,11 @@ type NVMFlash struct {
 }
 
 func (nvm *NVMFlash) LoadProgram(rom []byte) error {
-	if nvm.Cortex == nil {
+	if nvm == nil {
 		return nil
 	}
 
-	err := nvm.Halt()
-	if err != nil {
-		return err
-	}
-
-	err = nvm.Configure()
+	err := nvm.Configure()
 	if err != nil {
 		return err
 	}
@@ -83,65 +80,63 @@ func (nvm *NVMFlash) LoadProgram(rom []byte) error {
 	if err != nil {
 		return err
 	}
-	err = nvm.WriteTransfer32(cmsisdap.AccessPort, cmsisdap.PortRegister0, 0xA2000022)
-	if err != nil {
-		return err
-	}
-	fmt.Printf("Debug NVM Data: %+v\n", *nvm)
-	// Set Base Address
-	err = nvm.WriteAddr32(nvm.NVMControllerAddress+nvm.NVMSetWriteAddressOffset, nvm.WriteAddress)
+
+	err = nvm.Halt()
 	if err != nil {
 		return err
 	}
 
-	err = nvm.Erase()
+	err = nvm.ClearRegionLock()
 	if err != nil {
 		return err
 	}
-	//rom[0] = 0x10
-	//rom[1] = 0x10
-	//rom[2] = 0x10
-	//rom[3] = 0x10
+
+	err = nvm.WriteTransfer32(cmsisdap.AccessPort, cmsisdap.PortRegister0, 0x52)
+	if err != nil {
+		return err
+	}
+
 	buffer := make([]uint32, 0, nvm.WriteSize/4)
 	offset := uint32(0)
+	fmt.Printf("Total ROM LEN: %d\n", len(rom))
 	for i := 0; i < len(rom); i += 4 {
-		//if i%int(nvm.EraseSize) == 0 {
-		//	// Todo: See if this needs to update the Addr field in the NVM CTRL
-		//	err = nvm.Erase()
-		//	if err != nil {
-		//		return err
-		//	}
-		//}
+		if i%int(nvm.EraseSize) == 0 {
+			//fmt.Printf("Setting New Base: %x\n", nvm.WriteAddress+offset)
+			err = nvm.WriteAddr32(nvm.NVMControllerAddress+nvm.NVMSetWriteAddressOffset, nvm.WriteAddress+offset)
+			if err != nil {
+				return err
+			}
+			// Todo: See if this needs to update the Addr field in the NVM CTRL
+			err = nvm.Erase()
+			if err != nil {
+				return err
+			}
+		}
 
 		val := binary.LittleEndian.Uint32(rom[i:])
-		fmt.Printf("Writing Val: %x\n", val)
-		fmt.Printf("B[0] = %x\n", rom[i])
-		fmt.Printf("B[1] = %x\n", rom[i+1])
-		fmt.Printf("B[2] = %x\n", rom[i+2])
-		fmt.Printf("B[3] = %x\n", rom[i+3])
 		buffer = append(buffer, val)
 
 		if len(buffer) < int(nvm.WriteSize/4) {
 			continue
 		}
-		//fmt.Printf("Write To Address: %x\n", nvm.WriteAddress+offset)
-		err = nvm.Cortex.WriteSeqAddr32(nvm.WriteAddress+offset, buffer)
-		if err != nil {
-			return err
-		}
-		err = nvm.Commit()
+		fmt.Printf("Write To Address: %x\n", nvm.WriteAddress+offset)
+		err = nvm.WriteSeqAddr32(nvm.WriteAddress+offset, buffer)
 		if err != nil {
 			return err
 		}
 		buffer = buffer[:0]
 		offset += nvm.WriteSize
+		err = nvm.Commit()
+		if err != nil {
+			return err
+		}
 	}
 
 	if len(buffer) > 0 { // Means not page aligned
 		for len(buffer) < int(nvm.WriteSize/4) {
 			buffer = append(buffer, 0) // 0 Pad it, to page align it
 		}
-		err = nvm.Cortex.WriteSeqAddr32(nvm.WriteAddress, buffer)
+		err = nvm.WriteSeqAddr32(nvm.WriteAddress+offset, buffer)
 		if err != nil {
 			return err
 		}
@@ -154,9 +149,25 @@ func (nvm *NVMFlash) LoadProgram(rom []byte) error {
 	return nil
 }
 
+func (nvm *NVMFlash) ClearRegionLock() error {
+	// Check Locks
+	resp, err := nvm.ReadAddr32(nvm.NVMControllerAddress|0x18, 1)
+	if err != nil {
+		return err
+	}
+
+	if resp == 0xFFFFFFFF {
+		return nil
+	}
+
+	//TODO: Clear Lock
+
+	return nil
+}
+
 func (nvm *NVMFlash) Commit() error {
 	fmt.Printf("Issuing Write Command: %x\n", (nvm.NVMCMDKey<<nvm.NVMCMDKeyPos)|nvm.NVMWriteCMD)
-	err := nvm.Cortex.WriteAddr32(nvm.NVMControllerAddress+nvm.NVMCMDOffSet, (nvm.NVMCMDKey<<nvm.NVMCMDKeyPos)|nvm.NVMWriteCMD)
+	err := nvm.WriteAddr32(nvm.NVMControllerAddress+nvm.NVMCMDOffSet, (nvm.NVMCMDKey<<nvm.NVMCMDKeyPos)|nvm.NVMWriteCMD)
 	if err != nil {
 		return err
 	}
@@ -169,7 +180,7 @@ func (nvm *NVMFlash) Commit() error {
 
 func (nvm *NVMFlash) Erase() error {
 	fmt.Printf("Issuing Erase Command: %x\n", (nvm.NVMCMDKey<<nvm.NVMCMDKeyPos)|nvm.NVMEraseCMD)
-	err := nvm.Cortex.WriteAddr32(nvm.NVMControllerAddress+nvm.NVMCMDOffSet, (nvm.NVMCMDKey<<nvm.NVMCMDKeyPos)|nvm.NVMEraseCMD)
+	err := nvm.WriteAddr32(nvm.NVMControllerAddress+nvm.NVMCMDOffSet, (nvm.NVMCMDKey<<nvm.NVMCMDKeyPos)|nvm.NVMEraseCMD)
 	if err != nil {
 		return err
 	}
@@ -199,7 +210,6 @@ func (nvm *NVMFlash) WaitForReady() error {
 		if time.Since(ti) > time.Second*1 {
 			return fmt.Errorf("error: Atsame51.LoadProgram() timedout waiting for CMD clear")
 		}
-		time.Sleep(time.Millisecond * 100)
 	}
 
 	// Clear Interrupt
@@ -224,16 +234,15 @@ func (nvm *NVMFlash) WaitForReady() error {
 		if time.Since(ti) > time.Second*1 {
 			return fmt.Errorf("error: Atsame51.LoadProgram() timedout waiting for CMD clear")
 		}
-		time.Sleep(time.Millisecond * 100)
 	}
 
 	//#######################################################
-
+	//
 	//ti := time.Now()
 	//
 	//for {
 	//	// Read Flag
-	//	val, err := nvm.Cortex.ReadAddr32(nvm.NVMControllerAddress+0x10, 1)
+	//	val, err := nvm.ReadAddr32(nvm.NVMControllerAddress+nvm.NVMReadyOffSet, 1)
 	//	if err != nil {
 	//		return err
 	//	}
@@ -244,7 +253,7 @@ func (nvm *NVMFlash) WaitForReady() error {
 	//	fmt.Printf("Debug attempts: %d\n", nvm.NVMReadyOffSet%4)
 	//	// Need to shift it down according to its word alignment
 	//	//val = val >> 16
-	//	fmt.Printf("Second NVM Status Ready: %x\n", val)
+	//	//fmt.Printf("Second NVM Status Ready: %x\n", val)
 	//
 	//	// Bitwise Flag check
 	//	if val&nvm.NVMReadyMask == nvm.NVMReadyVal {
@@ -266,7 +275,7 @@ func (nvm *NVMFlash) WaitForReady() error {
 	//ti = time.Now()
 	//for {
 	//	// Read Flag
-	//	val, err := nvm.Cortex.ReadAddr32(nvm.NVMControllerAddress+0x10, 1)
+	//	val, err := nvm.ReadAddr32(nvm.NVMControllerAddress+0x10, 1)
 	//	if err != nil {
 	//		return err
 	//	}
@@ -294,7 +303,7 @@ func (nvm *NVMFlash) WaitForReady() error {
 }
 
 func (nvm *NVMFlash) Configure() error {
-	readVal, err := nvm.Cortex.ReadAddr32(nvm.NVMControllerAddress+nvm.NVMPARAMOffset, 1)
+	readVal, err := nvm.ReadAddr32(nvm.NVMControllerAddress+nvm.NVMPARAMOffset, 1)
 	if err != nil {
 		return err
 	}
