@@ -2,9 +2,11 @@ package targets
 
 import (
 	"fmt"
+	"github.com/goocd/goocd/actions/samflash"
 	"github.com/goocd/goocd/core/cortexm4"
 	"github.com/goocd/goocd/fileformats/elfparser"
 	"github.com/goocd/goocd/mcus/atsame51"
+	"github.com/goocd/goocd/mcus/sam/atsame51j20a"
 	"github.com/goocd/goocd/probes/samatmelice"
 	"github.com/goocd/goocd/protocols/cmsisdap"
 	"github.com/goocd/goocd/protocols/usbhid"
@@ -47,7 +49,31 @@ func init() {
 			if args.Load != "" {
 				addr, rom, err := elfparser.ExtractROM(args.Load)
 				checkErr(err)
-				err = atsam.LoadProgram(uint32(addr), rom)
+				nvm := &samflash.NVMFlash{
+					Cortex:                   core,
+					WriteAddress:             uint32(addr),
+					EraseMultiplyer:          16, // Not easily Parsable, but in the Data sheet for the chip in the memory organization  section of NVMController
+					NVMControllerAddress:     atsame51j20a.NVMCTRL_Addr,
+					NVMSetWriteAddressOffset: atsame51j20a.NVMCTRL_ADDR_Offset,
+					NVMPARAMOffset:           atsame51j20a.NVMCTRL_PARAM_Offset,
+					NVMPageSizeMask:          atsame51j20a.NVMCTRL_PARAM_PSZ_Msk,
+					NVMPageSizePos:           atsame51j20a.NVMCTRL_PARAM_PSZ_Pos,
+					NVMPageCountMask:         atsame51j20a.NVMCTRL_PARAM_NVMP_Msk,
+					NVMPageCountPos:          atsame51j20a.NVMCTRL_PARAM_NVMP_Pos,
+
+					NVMReadyOffSet: atsame51j20a.NVMCTRL_STATUS_Offset,
+					NVMReadyMask:   atsame51j20a.NVMCTRL_STATUS_READY_Msk,
+					NVMReadyVal:    atsame51j20a.NVMCTRL_STATUS_READY,
+
+					NVMCMDOffSet: atsame51j20a.NVMCTRL_CTRLB_Offset,
+					NVMCMDKey:    atsame51j20a.NVMCTRL_CTRLB_CMDEX_KEY,
+					NVMCMDKeyPos: atsame51j20a.NVMCTRL_CTRLB_CMDEX_Pos,
+					NVMEraseCMD:  atsame51j20a.NVMCTRL_CTRLB_CMD_EB,
+					NVMWriteCMD:  atsame51j20a.NVMCTRL_CTRLB_CMD_WP,
+				}
+
+				err = nvm.LoadProgram(rom)
+				//err = atsam.LoadProgram(uint32(addr), rom)
 				checkErr(err)
 				fmt.Printf("Successfully Flashed Rom\n")
 			}

@@ -260,28 +260,31 @@ func (d *DAPTransferCoreAccess) WriteAddr32(addr, value uint32) error {
 }
 
 // WriteSeqAddr32 does sequential write transactions to the AHB-AccessPort address provided based off how many values are in the buffer.
-// Note: This is heavily affected by the CSW register (PortRegister 0 of the AccessPort) and may have different results if not left on the default write mode
-// Note 2: Some Write operations auto increment internally completely separately from the CSW.
-// Example: The NVM Page Buffer auto increments for every request and only needs to be updated after a complete page write is committed.
-func (d *DAPTransferCoreAccess) WriteSeqAddr32(initialize bool, addr uint32, value []uint32) error {
-	if len(value) > 101 {
-		return fmt.Errorf("error: DAPTransferCoreAccess.WriteSeqAddr32() len of values is too large")
-	}
-
-	//fmt.Printf("Writing Stuff At Address: %x\n", addr)
+func (d *DAPTransferCoreAccess) WriteSeqAddr32(addr uint32, value []uint32) error {
+	fmt.Printf("Seq Write Request with Len: %d\n", len(value))
 	requestBuffer := make([]request, 0, len(value)+2)
-	if initialize {
-		requestBuffer = append(requestBuffer, request{requestByte: byte(cmsisdap.DebugPort | cmsisdap.Write | cmsisdap.PortRegister8)})
-		requestBuffer = append(requestBuffer, request{requestByte: byte(cmsisdap.AccessPort | cmsisdap.Write | cmsisdap.PortRegister4), payload: addr})
-	}
+	requestBuffer = append(requestBuffer, request{requestByte: byte(cmsisdap.DebugPort | cmsisdap.Write | cmsisdap.PortRegister8)})
+	requestBuffer = append(requestBuffer, request{requestByte: byte(cmsisdap.AccessPort | cmsisdap.Write | cmsisdap.PortRegister4), payload: addr})
 	for _, val := range value {
 		requestBuffer = append(requestBuffer, request{requestByte: byte(cmsisdap.AccessPort | cmsisdap.Write | cmsisdap.PortRegisterC), payload: val})
-		//fmt.Printf("AP Write Reg C %x\n", val)
+		//fmt.Printf("Appending Val: %x\n", val)
+		if len(requestBuffer) >= 66 {
+			fmt.Printf("Sending Transfer with Len: %d\n", len(requestBuffer))
+			_, err := d.DAPTransfer(0, uint8(len(requestBuffer)), d.encodeDAPRequest(requestBuffer))
+			if err != nil {
+				return err
+			}
+			requestBuffer = requestBuffer[:0]
+		}
 	}
 
-	_, err := d.DAPTransfer(0, uint8(len(requestBuffer)), d.encodeDAPRequest(requestBuffer))
-	if err != nil {
-		return err
+	if len(requestBuffer) > 0 {
+		fmt.Printf("Sending Transfer with Len: %d\n", len(requestBuffer))
+		_, err := d.DAPTransfer(0, uint8(len(requestBuffer)), d.encodeDAPRequest(requestBuffer))
+		if err != nil {
+			return err
+		}
+		requestBuffer = requestBuffer[:0]
 	}
 
 	return nil
@@ -328,12 +331,16 @@ func (d *DAPTransferCoreAccess) encodeDAPRequest(requests []request) []byte {
 			continue
 		}
 		binary.LittleEndian.PutUint32(d.encodingBuffer[idx:], req.payload)
+		//fmt.Printf("Request: %x, PayLoad: %x\n", req.requestByte, req.payload)
+		//randoBuf := make([]byte, 4)
+		//binary.LittleEndian.PutUint32(randoBuf, req.payload)
+		//fmt.Printf("Little Endian conversion: %x\n", randoBuf)
 		idx += 4
 	}
 	return d.encodingBuffer[:idx]
 }
 
-// Halt access the cortex DHCSR register and writes the Halt bits according to CorextM4 specifications 
+// Halt access the cortex DHCSR register and writes the Halt bits according to CorextM4 specifications
 func (d *DAPTransferCoreAccess) Halt() error {
 	_, err := d.DAPTransfer(0, 3, d.encodeDAPRequest([]request{
 		{

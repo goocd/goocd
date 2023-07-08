@@ -147,41 +147,37 @@ func (a *Atsame51) LoadProgram(startAddress uint32, rom []byte) error {
 		return err
 	}
 
-	buffer := make([]uint32, 0, 64)
+	buffer := make([]uint32, 0, 128)
 	i := 0
-	initialize := true
 	for _, val := range rom32 {
 		buffer = append(buffer, val)
-		if len(buffer) < 64 {
+		if len(buffer) < 128 {
 			continue
 		}
 
 		//fmt.Printf("Index: %d\n", i)
-		err = a.WriteSeqAddr32(initialize, startAddress+(uint32(i)*4), buffer) // AKA 0x80 AKA 512 bytes AKA 1 Page Size
+		err = a.WriteSeqAddr32(startAddress+(uint32(i)*4), buffer) // AKA 0x80 AKA 512 bytes AKA 1 Page Size
 		if err != nil {
 			return fmt.Errorf("error: Atsame51.LoadProgram() WriteSeqAdd32 Error: %+v", err)
 		}
-		initialize = false
-		i += 64
 		buffer = buffer[:0]
-
-		if i%128 == 0 { // 128*4 = 512 == 1 page
-			err = a.NVMCMD(0x3)
-			if err != nil {
-				return fmt.Errorf("error: Atsame51.LoadProgram() WriteAddr32 Error: %+v", err)
-			}
-			initialize = true
+		i += 128
+		err = a.NVMCMD(0x3)
+		if err != nil {
+			return fmt.Errorf("error: Atsame51.LoadProgram() WriteAddr32 Error: %+v", err)
 		}
 	}
 
-	err = a.WriteSeqAddr32(initialize, startAddress+(uint32(i)*4), buffer) // AKA 0x80 AKA 512 bytes AKA 1 Page Size
-	if err != nil {
-		return fmt.Errorf("error: Atsame51.LoadProgram() WriteSeqAdd32 Error: %+v", err)
-	}
+	if len(buffer) > 0 {
+		err = a.WriteSeqAddr32(startAddress+(uint32(i)*4), buffer) // AKA 0x80 AKA 512 bytes AKA 1 Page Size
+		if err != nil {
+			return fmt.Errorf("error: Atsame51.LoadProgram() WriteSeqAdd32 Error: %+v", err)
+		}
 
-	err = a.NVMCMD(0x3)
-	if err != nil {
-		return fmt.Errorf("error: Atsame51.LoadProgram() WriteAddr32 Error: %+v", err)
+		err = a.NVMCMD(0x3)
+		if err != nil {
+			return fmt.Errorf("error: Atsame51.LoadProgram() WriteAddr32 Error: %+v", err)
+		}
 	}
 
 	return nil
