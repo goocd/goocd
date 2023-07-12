@@ -55,7 +55,6 @@ func (c *CMSISDAP) Configure(ClockSpeed uint32, p *Parameters) error {
 	if err != nil {
 		return err
 	}
-	// Todo: figure out what this actually means https://arm-software.github.io/CMSIS_5/DAP/html/group__DAP__SWJ__Sequence.html
 	err = c.DAPSWJSequence(p.SWJSeqCount, p.SWJSeqData)
 	if err != nil {
 		return err
@@ -65,7 +64,6 @@ func (c *CMSISDAP) Configure(ClockSpeed uint32, p *Parameters) error {
 	if err != nil {
 		return err
 	}
-	// TODO: Tune this in. This extreme example was simple to let large transfers finish before returning
 	err = c.DAPTransferConfigure(p.DAPTransferCycles, p.DAPWaitTime, p.DAPMatchTime)
 	if err != nil {
 		return err
