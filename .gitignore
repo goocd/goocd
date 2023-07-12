@@ -22,3 +22,6 @@ go.work
 
 # Intellij IDE stuff
 .idea
+
+# MacOS weirdness
+.DS_Store
