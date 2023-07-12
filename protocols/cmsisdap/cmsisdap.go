@@ -2,6 +2,7 @@ package cmsisdap
 
 import (
 	"encoding/binary"
+	"fmt"
 )
 
 /*
@@ -16,9 +17,66 @@ type ReadWriter interface {
 	Write([]byte) (int, error)
 }
 
+type Parameters struct {
+	SWDConfigClockCycles byte
+	SWDConfigDataPhase   byte
+
+	SWJSeqCount uint8
+	SWJSeqData  []byte
+
+	DAPTransferCycles uint8
+	DAPWaitTime       uint16
+	DAPMatchTime      uint16
+
+	DAPPort byte
+}
+
 type CMSISDAP struct {
 	ReadWriter ReadWriter
 	Buffer     [512]byte // Pre-Allocated to avoid potential os allocation issues
+}
+
+func (c *CMSISDAP) Configure(ClockSpeed uint32, p *Parameters) error {
+	if c.ReadWriter == nil {
+		return fmt.Errorf("error: CMSISDAP.Configure() missing required Read/Writer")
+	}
+
+	// Reverse Endianness of the Clock Speed
+	clockBuf := make([]byte, 4)
+	binary.LittleEndian.PutUint32(clockBuf, ClockSpeed)
+
+	// Get to known state
+	err := c.DAPDisconnect()
+	if err != nil {
+		return err
+	}
+	// Config Cycles
+	err = c.DAPSWDConfigure(p.SWDConfigClockCycles | p.SWDConfigDataPhase)
+	if err != nil {
+		return err
+	}
+	// Todo: figure out what this actually means https://arm-software.github.io/CMSIS_5/DAP/html/group__DAP__SWJ__Sequence.html
+	err = c.DAPSWJSequence(p.SWJSeqCount, p.SWJSeqData)
+	if err != nil {
+		return err
+	}
+	// Set Clock Speed to 2Mhz. Note: This is debugger Clock Speed not to exceed 10x the chip Max ClockSpeed
+	err = c.DAPSWJClock(binary.BigEndian.Uint32(clockBuf))
+	if err != nil {
+		return err
+	}
+	// TODO: Tune this in. This extreme example was simple to let large transfers finish before returning
+	err = c.DAPTransferConfigure(p.DAPTransferCycles, p.DAPWaitTime, p.DAPMatchTime)
+	if err != nil {
+		return err
+	}
+	// Connect to Chip
+	err = c.DAPConnect(p.DAPPort)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (c *CMSISDAP) DAPInfo(info byte) error {

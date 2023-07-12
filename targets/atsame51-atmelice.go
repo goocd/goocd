@@ -64,6 +64,7 @@ func init() {
 					NVMPageCountMask:         atsame51j20a.NVMCTRL_PARAM_NVMP_Msk,
 					NVMPageCountPos:          atsame51j20a.NVMCTRL_PARAM_NVMP_Pos,
 
+					NVMClearReady:  true,
 					NVMReadyOffSet: atsame51j20a.NVMCTRL_STATUS_Offset,
 					NVMReadyMask:   atsame51j20a.NVMCTRL_STATUS_READY_Msk,
 					NVMReadyVal:    atsame51j20a.NVMCTRL_STATUS_READY,

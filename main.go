@@ -19,8 +19,8 @@ func main() {
 	readmemu32 := flag.String("readmemu32", "", "uint32 memory address you wish to read followed by optional 32-bit word count, e.g. '0x20004000,5'")
 	writememu32 := flag.String("writememu32", "", "uint32 memory address and value you wish to write and optional 32-bit word count, comma separated, e.g. '0x20004000,0xF0E0D0C0,1'")
 	reset := flag.Bool("reset", false, "Issue Reset Command to target")
-	//Halt := flag.Bool("halt", false, "Halts run time operation")
-	//resume := flag.Bool("resume", false, "Resumes runtime operation")
+	stats := flag.Bool("stats", false, "dumps stats if applicable to the command")
+	// Todo: Change this to a "verbosity" level and add wrapper to the logging based on it
 
 	flag.Usage = func() {
 		// TODO: customize as needed
@@ -99,6 +99,10 @@ func main() {
 
 	if tgt.SupportsLoad && *loadF != "" {
 		args.Load = *loadF
+	}
+
+	if *stats {
+		args.Stats = *stats
 	}
 
 	//args.Load = *loadF

@@ -39,6 +39,8 @@ type NVMFlash struct {
 	*cmsisdap.CMSISDAP
 	*cortexm4.DAPTransferCoreAccess
 
+	Stats bool
+
 	WriteSize       uint32
 	PageCount       uint32
 	EraseSize       uint32
@@ -54,7 +56,9 @@ type NVMFlash struct {
 	NVMPageSizePos   uint32
 	NVMPageCountMask uint32
 	NVMPageCountPos  uint32
+	NVMPageSizeBits  uint32
 
+	NVMClearReady  bool
 	NVMReadyOffSet uint32
 	NVMReadyMask   uint32
 	NVMReadyVal    uint32
@@ -98,7 +102,14 @@ func (nvm *NVMFlash) LoadProgram(rom []byte) error {
 
 	buffer := make([]uint32, 0, nvm.WriteSize/4)
 	offset := uint32(0)
-	fmt.Printf("Total ROM LEN: %d\n", len(rom))
+
+	if nvm.Stats {
+		fmt.Printf("Total ROM LEN: %d\n", len(rom))
+		fmt.Printf("Total Flash Size: %d\n", nvm.FlashSize)
+		fmt.Printf("Erase Row Size: %d\n", nvm.EraseSize)
+		fmt.Printf("Page Size: %d\n", nvm.WriteSize)
+	}
+
 	for i := 0; i < len(rom); i += 4 {
 		if i%int(nvm.EraseSize) == 0 {
 			//fmt.Printf("Setting New Base: %x\n", nvm.WriteAddress+offset)
@@ -119,7 +130,7 @@ func (nvm *NVMFlash) LoadProgram(rom []byte) error {
 		if len(buffer) < int(nvm.WriteSize/4) {
 			continue
 		}
-		fmt.Printf("Write %x To Address: %x\n", buffer, nvm.WriteAddress+offset)
+		//fmt.Printf("Write %x To Address: %x\n", buffer, nvm.WriteAddress+offset)
 		err = nvm.WriteSeqAddr32(nvm.WriteAddress+offset, buffer)
 		if err != nil {
 			return err
@@ -166,7 +177,7 @@ func (nvm *NVMFlash) ClearRegionLock() error {
 }
 
 func (nvm *NVMFlash) Commit() error {
-	fmt.Printf("Issuing Write Command: %x\n", (nvm.NVMCMDKey<<nvm.NVMCMDKeyPos)|nvm.NVMWriteCMD)
+	//fmt.Printf("Issuing Write Command: %x\n", (nvm.NVMCMDKey<<nvm.NVMCMDKeyPos)|nvm.NVMWriteCMD)
 	err := nvm.WriteAddr32(nvm.NVMControllerAddress+nvm.NVMCMDOffSet, (nvm.NVMCMDKey<<nvm.NVMCMDKeyPos)|nvm.NVMWriteCMD)
 	if err != nil {
 		return err
@@ -179,7 +190,7 @@ func (nvm *NVMFlash) Commit() error {
 }
 
 func (nvm *NVMFlash) Erase() error {
-	fmt.Printf("Issuing Erase Command: %x\n", (nvm.NVMCMDKey<<nvm.NVMCMDKeyPos)|nvm.NVMEraseCMD)
+	//	fmt.Printf("Issuing Erase Command: %x\n", (nvm.NVMCMDKey<<nvm.NVMCMDKeyPos)|nvm.NVMEraseCMD)
 	err := nvm.WriteAddr32(nvm.NVMControllerAddress+nvm.NVMCMDOffSet, (nvm.NVMCMDKey<<nvm.NVMCMDKeyPos)|nvm.NVMEraseCMD)
 	if err != nil {
 		return err
@@ -195,14 +206,14 @@ func (nvm *NVMFlash) WaitForReady() error {
 	ti := time.Now()
 	for {
 		// Read Flag
-		val, err := nvm.ReadAddr32(0x41005018, 1)
+		val, err := nvm.ReadAddr32(nvm.NVMControllerAddress+nvm.NVMReadyOffSet, 1)
 		if err != nil {
 			return err
 		}
 
-		fmt.Printf("ValAP: %x\n", val)
+		//fmt.Printf("ValAP: %x\n", val)
 		// Bitwise Flag check
-		if val&0x4 > 0 {
+		if val&nvm.NVMReadyMask > 0 {
 			break
 		}
 
@@ -212,93 +223,31 @@ func (nvm *NVMFlash) WaitForReady() error {
 		}
 	}
 
-	//// Clear Interrupt
-	//err := nvm.WriteAddr32(0x41005018, 0x4)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//ti = time.Now()
-	//for {
-	//	// Wait For interrupt to be cleared after you wrote to it
-	//	val, err := nvm.ReadAddr32(0x41005018, 1)
-	//	if err != nil {
-	//		return err
-	//	}
-	//
-	//	fmt.Printf("ValAP: %x\n", val)
-	//	if val&0x4 == 0 {
-	//		break
-	//	}
-	//
-	//	if time.Since(ti) > time.Second*1 {
-	//		return fmt.Errorf("error: Atsame51.LoadProgram() timedout waiting for CMD clear")
-	//	}
-	//}
+	if nvm.NVMClearReady {
+		// Clear Interrupt
+		err := nvm.WriteAddr32(nvm.NVMControllerAddress+nvm.NVMReadyOffSet, nvm.NVMReadyVal)
+		if err != nil {
+			return err
+		}
 
-	//#######################################################
-	//
-	//ti := time.Now()
-	//
-	//for {
-	//	// Read Flag
-	//	val, err := nvm.ReadAddr32(nvm.NVMControllerAddress+nvm.NVMReadyOffSet, 1)
-	//	if err != nil {
-	//		return err
-	//	}
-	//	// Need to shift it down according to its word alignment
-	//	fmt.Printf("NVM Status Ready Address: %x\n", nvm.NVMControllerAddress+nvm.NVMReadyOffSet)
-	//	fmt.Printf("NVM Status Ready: %x\n", val)
-	//	fmt.Printf("NVM Status [Ready Mask: %x Ready Val: %x]\n", nvm.NVMReadyMask, nvm.NVMReadyVal)
-	//	fmt.Printf("Debug attempts: %d\n", nvm.NVMReadyOffSet%4)
-	//	// Need to shift it down according to its word alignment
-	//	//val = val >> 16
-	//	//fmt.Printf("Second NVM Status Ready: %x\n", val)
-	//
-	//	// Bitwise Flag check
-	//	if val&nvm.NVMReadyMask == nvm.NVMReadyVal {
-	//		break
-	//	}
-	//
-	//	// Timeout
-	//	if time.Since(ti) > time.Second*1 {
-	//		return fmt.Errorf("error: Atsame51.LoadProgram() timedout waiting for CMD clear")
-	//	}
-	//}
-	//
-	//// Clear Interrupt
-	//err := nvm.WriteAddr32(nvm.NVMControllerAddress+0x10, 0x1)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//ti = time.Now()
-	//for {
-	//	// Read Flag
-	//	val, err := nvm.ReadAddr32(nvm.NVMControllerAddress+0x10, 1)
-	//	if err != nil {
-	//		return err
-	//	}
-	//	// Need to shift it down according to its word alignment
-	//	fmt.Printf("NVM Status Ready Address: %x\n", nvm.NVMControllerAddress+nvm.NVMReadyOffSet)
-	//	fmt.Printf("NVM Status Ready: %x\n", val)
-	//	fmt.Printf("NVM Status [Ready Mask: %x Ready Val: %x]\n", nvm.NVMReadyMask, nvm.NVMReadyVal)
-	//	fmt.Printf("Debug attempts: %d\n", nvm.NVMReadyOffSet%4)
-	//	// Need to shift it down according to its word alignment
-	//	//val = val >> 16
-	//	fmt.Printf("Second NVM Status Ready: %x\n", val)
-	//
-	//	// Bitwise Flag check
-	//	if val&nvm.NVMReadyMask != nvm.NVMReadyVal {
-	//		break
-	//	}
-	//
-	//	// Timeout
-	//	if time.Since(ti) > time.Second*1 {
-	//		return fmt.Errorf("error: Atsame51.LoadProgram() timedout waiting for CMD clear")
-	//	}
-	//}
+		ti = time.Now()
+		for {
+			// Wait For interrupt to be cleared after you cleared it
+			val, err := nvm.ReadAddr32(nvm.NVMControllerAddress+nvm.NVMReadyOffSet, 1)
+			if err != nil {
+				return err
+			}
 
+			//fmt.Printf("ValAP: %x\n", val)
+			if val&nvm.NVMReadyMask == 0 {
+				break
+			}
+
+			if time.Since(ti) > time.Second*1 {
+				return fmt.Errorf("error: Atsame51.LoadProgram() timedout waiting for CMD clear")
+			}
+		}
+	}
 	return nil
 }
 
@@ -309,8 +258,8 @@ func (nvm *NVMFlash) Configure() error {
 	}
 
 	nvm.PageCount = (readVal & nvm.NVMPageCountMask) >> nvm.NVMPageCountPos
-	pgSizeVal := (readVal & nvm.NVMPageSizeMask) >> nvm.NVMPageSizePos
-	switch pgSizeVal {
+	nvm.NVMPageSizeBits = (readVal & nvm.NVMPageSizeMask) >> nvm.NVMPageSizePos
+	switch nvm.NVMPageSizeBits {
 	case NVMCTRL_PARAM_PSZ_8:
 		nvm.WriteSize = 8
 	case NVMCTRL_PARAM_PSZ_16:
@@ -336,6 +285,11 @@ func (nvm *NVMFlash) Configure() error {
 }
 
 func (nvm *NVMFlash) MemoryChecks(romLen int) error {
+
+	if nvm.WriteSize == 0 {
+		return fmt.Errorf("error: could not determine write size of chip with value: %d", nvm.NVMPageSizeBits)
+	}
+
 	// Rom Larger than Flash Size
 	if romLen > int(nvm.FlashSize) {
 		return fmt.Errorf("error: Rom of Len %d exceeds Flash of Size: %d", romLen, nvm.FlashSize)

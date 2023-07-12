@@ -11,6 +11,7 @@ var TargetMap = make(map[string]*Target)
 type Args struct {
 	Load  string // file path to load (elfparser, hex, bin)
 	Reset bool
+	Stats bool
 	// -readmemu32=0xF0000000,5
 	// -readmemu32=0xF0000000 (count=1 implied)
 	ReadMemU32Addr   uint64
