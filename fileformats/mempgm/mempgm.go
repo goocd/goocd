@@ -6,7 +6,7 @@ package mempgm
 import (
 	"io"
 
-	"github.com/goocd/goocd/fileformats"
+	"goocd/fileformats"
 )
 
 // MemProgramReader implements fileformats.ProgramReader.

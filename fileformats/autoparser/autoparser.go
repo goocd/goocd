@@ -9,10 +9,10 @@ import (
 	"path"
 	"strings"
 
-	"github.com/goocd/goocd/fileformats"
-	"github.com/goocd/goocd/fileformats/elfparser"
-	"github.com/goocd/goocd/fileformats/hexparser"
-	"github.com/goocd/goocd/fileformats/mempgm"
+	"goocd/fileformats"
+	"goocd/fileformats/elfparser"
+	"goocd/fileformats/hexparser"
+	"goocd/fileformats/mempgm"
 )
 
 func ParseFromPath(filePath string, defaultStartAddr uint64) (fileformats.ProgramReader, error) {

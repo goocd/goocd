@@ -1,6 +1,6 @@
 package samatmelice
 
-import "github.com/goocd/goocd/protocols/cmsisdap"
+import "goocd/protocols/cmsisdap"
 
 const (
 	VendorID  = uint16(0x03eb)

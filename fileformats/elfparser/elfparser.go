@@ -5,8 +5,8 @@ import (
 	"io/ioutil"
 	"sort"
 
-	"github.com/goocd/goocd/fileformats"
-	"github.com/goocd/goocd/fileformats/mempgm"
+	"goocd/fileformats"
+	"goocd/fileformats/mempgm"
 )
 
 // NOTE: borrowed from TinyGo's builder/objcopy.go

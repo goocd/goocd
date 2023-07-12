@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/goocd/goocd/targets"
+	"goocd/targets"
 )
 
 func main() {
