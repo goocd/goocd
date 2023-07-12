@@ -4,9 +4,9 @@ import (
 	"errors"
 	"os"
 
-	"github.com/goocd/goocd/fileformats"
-	"github.com/goocd/goocd/fileformats/mempgm"
 	"github.com/marcinbor85/gohex"
+	"goocd/fileformats"
+	"goocd/fileformats/mempgm"
 )
 
 func ParseFromPath(filePath string) (fileformats.ProgramReader, error) {

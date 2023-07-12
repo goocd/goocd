@@ -2,7 +2,7 @@ package cortexm4
 
 import (
 	"encoding/binary"
-	"github.com/goocd/goocd/protocols/cmsisdap"
+	"goocd/protocols/cmsisdap"
 )
 
 // Cortex M4 specific Register data

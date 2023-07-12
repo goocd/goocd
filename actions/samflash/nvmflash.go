@@ -3,8 +3,8 @@ package samflash
 import (
 	"encoding/binary"
 	"fmt"
-	"github.com/goocd/goocd/core/cortexm4"
-	"github.com/goocd/goocd/protocols/cmsisdap"
+	"goocd/core/cortexm4"
+	"goocd/protocols/cmsisdap"
 	"time"
 )
 

@@ -1,4 +1,4 @@
-module github.com/goocd/goocd
+module goocd
 
 go 1.20
 

@@ -2,14 +2,13 @@ package targets
 
 import (
 	"fmt"
-	"github.com/goocd/goocd/actions/samflash"
-	"github.com/goocd/goocd/core/cortexm4"
-	"github.com/goocd/goocd/fileformats/autoparser"
-	"github.com/goocd/goocd/mcus/atsame51"
-	"github.com/goocd/goocd/mcus/sam/atsame51j20a"
-	"github.com/goocd/goocd/probes/samatmelice"
-	"github.com/goocd/goocd/protocols/cmsisdap"
-	"github.com/goocd/goocd/protocols/usbhid"
+	"goocd/actions/samflash"
+	"goocd/core/cortexm4"
+	"goocd/fileformats/autoparser"
+	"goocd/mcus/sam/atsame51j20a"
+	"goocd/probes/samatmelice"
+	"goocd/protocols/cmsisdap"
+	"goocd/protocols/usbhid"
 )
 
 func init() {
@@ -30,18 +29,18 @@ func init() {
 			// Pass CMS to the Cortex Driver
 			core := &cortexm4.DAPTransferCoreAccess{DAPTransferer: cms}
 
-			// Pass Both to Atsame51 struct
-			atsam := &atsame51.Atsame51{CMSISDAP: cms, DAPTransferCoreAccess: core}
-			checkErr(atsam.Configure(cmsisdap.ClockSpeed2Mhz))
+			// Configure CMSIS + Cortex
+			checkErr(cms.Configure(cmsisdap.ClockSpeed2Mhz, samatmelice.IceParamaters))
+			checkErr(core.Configure())
 
 			if args.WriteMemU32Count > 0 {
-				err := atsam.WriteAddr32(uint32(args.WriteMemU32Addr), uint32(args.WriteMemU32Value))
+				err := core.WriteAddr32(uint32(args.WriteMemU32Addr), uint32(args.WriteMemU32Value))
 				checkErr(err)
 				fmt.Printf("WriteAddr32[Address: 0x%x, Value: 0x%x\n]", args.WriteMemU32Addr, args.WriteMemU32Value)
 			}
 
 			if args.ReadMemU32Count > 0 {
-				val, err := atsam.ReadAddr32(uint32(args.ReadMemU32Addr), args.ReadMemU32Count)
+				val, err := core.ReadAddr32(uint32(args.ReadMemU32Addr), args.ReadMemU32Count)
 				checkErr(err)
 				fmt.Printf("ReadAddr32[Address: 0x%x, Value: 0x%x]\n", args.ReadMemU32Addr, val)
 			}
@@ -81,7 +80,7 @@ func init() {
 			}
 
 			if args.Reset {
-				err = atsam.Reset()
+				err = cms.Reset()
 				checkErr(err)
 				fmt.Printf("Successfully Reset\n")
 			}

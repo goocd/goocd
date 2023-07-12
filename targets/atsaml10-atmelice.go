@@ -2,13 +2,13 @@ package targets
 
 import (
 	"fmt"
-	"github.com/goocd/goocd/actions/samflash"
-	"github.com/goocd/goocd/core/cortexm4"
-	"github.com/goocd/goocd/fileformats/autoparser"
-	"github.com/goocd/goocd/mcus/sam/atsaml10d16a"
-	"github.com/goocd/goocd/probes/samatmelice"
-	"github.com/goocd/goocd/protocols/cmsisdap"
-	"github.com/goocd/goocd/protocols/usbhid"
+	"goocd/actions/samflash"
+	"goocd/core/cortexm4"
+	"goocd/fileformats/autoparser"
+	"goocd/mcus/sam/atsaml10d16a"
+	"goocd/probes/samatmelice"
+	"goocd/protocols/cmsisdap"
+	"goocd/protocols/usbhid"
 )
 
 func init() {
