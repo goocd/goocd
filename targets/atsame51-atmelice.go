@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/goocd/goocd/actions/samflash"
 	"github.com/goocd/goocd/core/cortexm4"
-	"github.com/goocd/goocd/fileformats/elfparser"
+	"github.com/goocd/goocd/fileformats/autoparser"
 	"github.com/goocd/goocd/mcus/atsame51"
 	"github.com/goocd/goocd/mcus/sam/atsame51j20a"
 	"github.com/goocd/goocd/probes/samatmelice"
@@ -37,7 +37,7 @@ func init() {
 			if args.WriteMemU32Count > 0 {
 				err := atsam.WriteAddr32(uint32(args.WriteMemU32Addr), uint32(args.WriteMemU32Value))
 				checkErr(err)
-				fmt.Printf("WriteAddr32[Address: 0x%x, Value: 0x%x\n]", args.ReadMemU32Addr, args.WriteMemU32Value)
+				fmt.Printf("WriteAddr32[Address: 0x%x, Value: 0x%x\n]", args.WriteMemU32Addr, args.WriteMemU32Value)
 			}
 
 			if args.ReadMemU32Count > 0 {
@@ -47,12 +47,14 @@ func init() {
 			}
 
 			if args.Load != "" {
-				addr, rom, err := elfparser.ExtractROM(args.Load)
+				programReader, err := autoparser.ParseFromPath(args.Load, 0x0)
+				checkErr(err)
+				program, err := programReader.NextProgram()
 				checkErr(err)
 				nvm := &samflash.NVMFlash{
 					CMSISDAP:                 cms,
 					DAPTransferCoreAccess:    core,
-					WriteAddress:             uint32(addr),
+					WriteAddress:             uint32(program.StartAddr()),
 					EraseMultiplyer:          16, // Not easily Parsable, but in the Data sheet for the chip in the memory organization  section of NVMController
 					NVMControllerAddress:     atsame51j20a.NVMCTRL_Addr,
 					NVMSetWriteAddressOffset: atsame51j20a.NVMCTRL_ADDR_Offset,
@@ -72,9 +74,7 @@ func init() {
 					NVMEraseCMD:  atsame51j20a.NVMCTRL_CTRLB_CMD_EB,
 					NVMWriteCMD:  atsame51j20a.NVMCTRL_CTRLB_CMD_WP,
 				}
-				_ = nvm
-				err = nvm.LoadProgram(rom)
-				//err = atsam.LoadProgram(uint32(addr), rom)
+				err = nvm.LoadProgram(program.Bytes())
 				checkErr(err)
 				fmt.Printf("Successfully Flashed Rom\n")
 			}

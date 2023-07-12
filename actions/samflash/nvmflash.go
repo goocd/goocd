@@ -119,7 +119,7 @@ func (nvm *NVMFlash) LoadProgram(rom []byte) error {
 		if len(buffer) < int(nvm.WriteSize/4) {
 			continue
 		}
-		fmt.Printf("Write To Address: %x\n", nvm.WriteAddress+offset)
+		fmt.Printf("Write %x To Address: %x\n", buffer, nvm.WriteAddress+offset)
 		err = nvm.WriteSeqAddr32(nvm.WriteAddress+offset, buffer)
 		if err != nil {
 			return err
@@ -195,14 +195,14 @@ func (nvm *NVMFlash) WaitForReady() error {
 	ti := time.Now()
 	for {
 		// Read Flag
-		val, err := nvm.ReadAddr32(0x41004010, 1)
+		val, err := nvm.ReadAddr32(0x41005018, 1)
 		if err != nil {
 			return err
 		}
 
-		//fmt.Printf("ValAP: %x\n", val)
+		fmt.Printf("ValAP: %x\n", val)
 		// Bitwise Flag check
-		if val&0x1 > 0 {
+		if val&0x4 > 0 {
 			break
 		}
 
@@ -212,29 +212,29 @@ func (nvm *NVMFlash) WaitForReady() error {
 		}
 	}
 
-	// Clear Interrupt
-	err := nvm.WriteAddr32(0x41004010, 0x1)
-	if err != nil {
-		return err
-	}
-
-	ti = time.Now()
-	for {
-		// Wait For interrupt to be cleared after you wrote to it
-		val, err := nvm.ReadAddr32(0x41004010, 1)
-		if err != nil {
-			return err
-		}
-
-		//fmt.Printf("ValAP: %x\n", val)
-		if val&0x1 == 0 {
-			break
-		}
-
-		if time.Since(ti) > time.Second*1 {
-			return fmt.Errorf("error: Atsame51.LoadProgram() timedout waiting for CMD clear")
-		}
-	}
+	//// Clear Interrupt
+	//err := nvm.WriteAddr32(0x41005018, 0x4)
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//ti = time.Now()
+	//for {
+	//	// Wait For interrupt to be cleared after you wrote to it
+	//	val, err := nvm.ReadAddr32(0x41005018, 1)
+	//	if err != nil {
+	//		return err
+	//	}
+	//
+	//	fmt.Printf("ValAP: %x\n", val)
+	//	if val&0x4 == 0 {
+	//		break
+	//	}
+	//
+	//	if time.Since(ti) > time.Second*1 {
+	//		return fmt.Errorf("error: Atsame51.LoadProgram() timedout waiting for CMD clear")
+	//	}
+	//}
 
 	//#######################################################
 	//
