@@ -62,6 +62,7 @@ type NVMFlash struct {
 	NVMReadyOffSet uint32
 	NVMReadyMask   uint32
 	NVMReadyVal    uint32
+	nvmReadyShift  uint32
 
 	NVMCMDOffSet uint32
 	NVMCMDKey    uint32
@@ -102,6 +103,8 @@ func (nvm *NVMFlash) LoadProgram(rom []byte) error {
 
 	buffer := make([]uint32, 0, nvm.WriteSize/4)
 	offset := uint32(0)
+	nvm.nvmReadyShift = (nvm.NVMReadyOffSet % 4) * 8
+	//fmt.Printf("NVMSHIFT: %d\n", nvm.nvmReadyShift)
 
 	if nvm.Stats {
 		fmt.Printf("Total ROM LEN: %d\n", len(rom))
@@ -211,6 +214,7 @@ func (nvm *NVMFlash) WaitForReady() error {
 			return err
 		}
 
+		val = val >> nvm.nvmReadyShift
 		//fmt.Printf("ValAP: %x\n", val)
 		// Bitwise Flag check
 		if val&nvm.NVMReadyMask > 0 {
@@ -223,6 +227,7 @@ func (nvm *NVMFlash) WaitForReady() error {
 		}
 	}
 
+	// Todo: See if this is even needed since this isn't the interrupt register
 	if nvm.NVMClearReady {
 		// Clear Interrupt
 		err := nvm.WriteAddr32(nvm.NVMControllerAddress+nvm.NVMReadyOffSet, nvm.NVMReadyVal)
@@ -237,7 +242,7 @@ func (nvm *NVMFlash) WaitForReady() error {
 			if err != nil {
 				return err
 			}
-
+			val = val >> nvm.nvmReadyShift
 			//fmt.Printf("ValAP: %x\n", val)
 			if val&nvm.NVMReadyMask == 0 {
 				break
